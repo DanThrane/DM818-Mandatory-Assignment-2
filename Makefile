@@ -1,9 +1,9 @@
 #
 # Franklin and Hopper
 #
-CC = CC
-MPCC = CC
-OPENMP = -mp
+CC = cc
+MPCC = cc
+OPENMP = -mp -fopenmp
 CFLAGS = -O3
 LIBS =
 
