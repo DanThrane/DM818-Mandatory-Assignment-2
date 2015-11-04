@@ -48,6 +48,7 @@ int main(int argc, char **argv) {
         }
 
         //  move particles
+        //  todo: might have to remove/add particle to correct grid here.
         for (int i = 0; i < n; i++)
             move(particles[i]);
 
