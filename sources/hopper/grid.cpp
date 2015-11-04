@@ -14,18 +14,22 @@ void grid_init(double size) {
 }
 
 void grid_add(particle_t *particle) {
-    // Idea is to save the coordinate into the array as integers,
-    // this should be correct enough to still find all the closest paritcles.
-    // In the worst case this might just include a few too many?
+    // Idea is to see the array as the grid, and store particles into it
+    // at their positions, converting to integers is nessecary (right?), and
+    // should only slightly affect their real position so a few too many 
+    // might be included.
+    
+    // I fear the whole double positioning might have eluded me though 
+    // and this conversion wont work. Needs to be tested i guess.
     int coordinate = (int)particle->x * size + (int)particle->y;
 
     // Several particles may resolve to the same grid positions, so we save a 
-    // grid position as a linked list.
+    // grid position as a linked list of particles.
     linkedlist *gridPosParticle = (linkedlist *) malloc(sizeof(linkedlist));
     gridPosParticle->data = particle;
 
     // In case one already exist at the location we point to that (the order
-    // they show up in is irellevant).
+    // they show up in is irellevant). IE we insert at beginning of the linked list.
     gridPosParticle->next = grid[coordinate];
     grid[coordinate] = gridPosParticle;
 }
