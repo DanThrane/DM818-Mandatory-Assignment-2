@@ -22,7 +22,7 @@ void grid_add(particle_t *particle) {
     // Several particles may resolve to the same grid positions, so we save a 
     // grid position as a linked list.
     linkedlist *gridPosParticle = (linkedlist *) malloc(sizeof(linkedlist));
-    gridPosParticle->data = particle;
+    gridPosParticle->value = particle;
 
     // In case one already exist at the location we point to that (the order
     // they show up in is irellevant).
@@ -36,7 +36,7 @@ void grid_remove(particle_t *particle) {
     linkedlist *listElem = grid[coordinate];
     linkedlist *prevElem;
 
-    while(listElem && (listElem->data != particle)) {
+    while(listElem && (listElem->value != particle)) {
         prevElem = listElem;
         listElem = listElem->next;
     }
