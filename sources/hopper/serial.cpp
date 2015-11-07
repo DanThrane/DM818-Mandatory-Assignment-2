@@ -29,7 +29,7 @@ int main(int argc, char **argv) {
 	double size = size = sqrt(0.0005 * n);
 	grid_init(size);
 	for (int i = 0; i < n; ++i) {
-		grid_add(particles[i]);
+		grid_add(&particles[i]);
 	}
 
     //  simulate a number of time steps
@@ -39,12 +39,12 @@ int main(int argc, char **argv) {
         //  compute forces
         for (int i = 0; i < n; i++) {
             particles[i].ax = particles[i].ay = 0;
-            linkedlist *collisions = grid_get_collisions(particles[i]);
+            linkedlist *collisions = grid_get_collisions(&particles[i]);
             while (collisions)
                 // Currently this will ONLY calculate direct collisions,
                 // need to be expanded to all grid locations around this too.
                 apply_force(particles[i], collisions->data);
-                collitions = collistions->next;
+                collisions = collisions->next;
         }
 
         //  move particles
