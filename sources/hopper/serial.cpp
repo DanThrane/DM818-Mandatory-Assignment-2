@@ -40,11 +40,12 @@ int main(int argc, char **argv) {
         for (int i = 0; i < n; i++) {
             particles[i].ax = particles[i].ay = 0;
             linkedlist *collisions = grid_get_collisions(&particles[i]);
-            while (collisions)
+            while (collisions != 0) {
                 // Currently this will ONLY calculate direct collisions,
                 // need to be expanded to all grid locations around this too.
-                apply_force(particles[i], collisions->data);
+                apply_force(particles[i], *(collisions->data));
                 collisions = collisions->next;
+	    }
         }
 
         //  move particles

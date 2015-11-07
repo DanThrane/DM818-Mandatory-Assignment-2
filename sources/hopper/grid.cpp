@@ -1,15 +1,16 @@
 #include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
 #include <math.h>
 #include "grid.h"
 
-linkedlist **grid;
-double size;
+struct linkedlist **grid;
+double sizeD;
 
 void grid_init(double size) {
-    size = size;
-    grid = (linkedlist**) malloc(sizeof(linkedlist*) * (int)size**2);    
-    memset(grid, 0, sizeof(linkedlist*) * (int)size**2);
+    sizeD = size;
+    grid = (struct linkedlist**) malloc(sizeof(struct linkedlist*) * (int)sizeD * (int)sizeD);    
+    memset(grid, 0, sizeof(struct linkedlist*) * (int)sizeD * (int)sizeD);
 }
 
 void grid_add(particle_t *particle) {
@@ -20,11 +21,11 @@ void grid_add(particle_t *particle) {
     
     // I fear the whole double positioning might have eluded me though 
     // and this conversion wont work. Needs to be tested i guess.
-    int coordinate = (int)particle->x * size + (int)particle->y;
+    int coordinate = (int)particle->x * sizeD + (int)particle->y;
 
     // Several particles may resolve to the same grid positions, so we save a 
     // grid position as a linked list of particles.
-    linkedlist *gridPosParticle = (linkedlist *) malloc(sizeof(linkedlist));
+    struct linkedlist *gridPosParticle = (struct linkedlist *) malloc(sizeof(linkedlist));
     gridPosParticle->data = particle;
 
     // In case one already exist at the location we point to that (the order
@@ -34,10 +35,10 @@ void grid_add(particle_t *particle) {
 }
 
 void grid_remove(particle_t *particle) {
-    int coordinate = (int)particle->x * (int)size + (int)particle->y;
+    int coordinate = (int)particle->x * (int)sizeD + (int)particle->y;
 
-    linkedlist *listElem = grid[coordinate];
-    linkedlist *prevElem;
+    struct linkedlist *listElem = grid[coordinate];
+    struct linkedlist *prevElem;
 
     while(listElem && (listElem->data != particle)) {
         prevElem = listElem;
@@ -50,9 +51,9 @@ void grid_remove(particle_t *particle) {
     }
 }
 
-linkedlist* grid_get_collisions(particle_t *particle) {
-    int coordinate = (int)particle->x * (int)size + (int)particle->y;
-    linkedlist *listElem = grid[coordinate];
+struct linkedlist* grid_get_collisions(particle_t *particle) {
+    int coordinate = (int)particle->x * (int)sizeD + (int)particle->y;
+    struct linkedlist *listElem = grid[coordinate];
     return listElem;
 }
 
