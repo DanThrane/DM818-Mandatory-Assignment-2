@@ -36,25 +36,33 @@ int main(int argc, char **argv) {
     double simulation_time = read_timer();
     for (int step = 0; step < NSTEPS; step++) {
         
+	printf("NSTEP = %i\n", step);
+
         //  compute forces
         for (int i = 0; i < n; i++) {
+	    printf("i = %i\n", i);
             particles[i].ax = particles[i].ay = 0;
             linkedlist *collisions = grid_get_collisions(&particles[i]);
             while (collisions != 0) {
                 // TODO: Currently this will ONLY calculate direct collisions,
                 // need to be expanded to all grid locations / neighbors around 
-                // this too.
-                apply_force(particles[i], *(collisions->data));
+		// TODO: Segfaults because while check dont seem to work?
+		printf("begin apply force\n");
+		apply_force(particles[i], *(collisions->data));
+		printf("apply force done\n");
                 collisions = collisions->next;
+		printf("collisions iteration done\n");
 	    }
         }
+	printf("*DONE* applied force to all\n");
 
         //  move particles
         //  and update their position in the grid
-        for (int i = 0; i < n; i++)
-            grid_remove(particles[i]);
+        for (int i = 0; i < n; i++) {
+            grid_remove(&particles[i]);
             move(particles[i]);
-            grid_add(particles[i]);
+            grid_add(&particles[i]);
+	}
 
         //  save if necessary
         if (fsave && (step % SAVEFREQ) == 0)
