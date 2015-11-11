@@ -7,4 +7,7 @@ set(SOURCE_FILES common.cpp common.h grid.cpp grid.h serial.cpp serial.h serial_
 
 add_executable(dm818_base_serial ${SOURCE_FILES} serial_base_main.cpp)
 add_executable(dm818_serial ${SOURCE_FILES} serial_main.cpp)
+add_executable(dm818_serial_debug ${SOURCE_FILES} serial_main.cpp)
 add_executable(dm818_test ${SOURCE_FILES} test_suite.cpp)
+
+target_compile_definitions(dm818_serial_debug PRIVATE DEBUG)
