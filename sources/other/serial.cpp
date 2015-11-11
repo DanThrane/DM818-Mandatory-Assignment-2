@@ -49,13 +49,11 @@ int runSerialWithParticles(FILE *fsave, int n, particle_t *particles) {
             // traverse included neighbors
             for (int offsetX = -1; offsetX <= 1; offsetX++) {
                 for (int offsetY = -1; offsetY <= 1; offsetY++) {
-                    linkedlist *collisions = grid_get_collisions_at_loc(
-                            (particles[i].x) + offsetX, (particles[i].y) + offsetY
-                    );
+                    const std::vector<particle_t *> &cell =
+                            grid_get_collisions_at_loc((particles[i].x) + offsetX, (particles[i].y) + offsetY);
 
-                    while (collisions) {
-                        apply_force(particles[i], *(collisions->data));
-                        collisions = collisions->next;
+                    for (auto particle : cell) {
+                        apply_force(particles[i], *particle);
                     }
                 }
             }
