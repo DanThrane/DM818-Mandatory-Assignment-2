@@ -19,11 +19,18 @@ double size;
 #define min_r   (cutoff/100)
 #define dt      0.0005
 
+static bool initialized = false;
+static bool first = true;
+
+void reset() {
+    initialized = false;
+    first = true;
+}
+
 //
 //  timer
 //
 double read_timer() {
-    static bool initialized = false;
     static struct timeval start;
     struct timeval end;
     if (!initialized) {
@@ -128,7 +135,6 @@ void move(particle_t &p) {
 //  I/O routines
 //
 void save(FILE *f, int n, particle_t *p) {
-    static bool first = true;
     if (first) {
         fprintf(f, "%d %g\n", n, size);
         first = false;

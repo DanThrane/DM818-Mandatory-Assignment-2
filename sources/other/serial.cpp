@@ -1,13 +1,14 @@
 #include <stdlib.h>
 #include <stdio.h>
-#include <assert.h>
 #include <math.h>
-#include "common.h"
 
-//
-//  benchmarking program
-//
-int main(int argc, char **argv) {
+#include "common.h"
+#include "grid.h"
+#include "serial.h"
+
+// benchmarking program
+// note: i don't expect this to compile.
+int runSerialImplementation(int argc, char **argv) {
     if (find_option(argc, argv, "-h") >= 0) {
         printf("Options:\n");
         printf("-h to see this help\n");
@@ -25,29 +26,50 @@ int main(int argc, char **argv) {
     set_size(n);
     init_particles(n, particles);
 
-    //
+    return runSerialWithParticles(fsave, n, particles);
+}
+
+int runSerialWithParticles(FILE *fsave, int n, particle_t *particles) {
+    // new additions for linear runstime
+    grid_init(sqrt(0.0005 * n) / 0.01);
+    for (int i = 0; i < n; ++i) {
+        grid_add(&particles[i]);
+    }
+
     //  simulate a number of time steps
-    //
     double simulation_time = read_timer();
     for (int step = 0; step < NSTEPS; step++) {
-        //
+
+        printf("NSTEP = %i\n", step);
+
         //  compute forces
-        //
         for (int i = 0; i < n; i++) {
             particles[i].ax = particles[i].ay = 0;
-            for (int j = 0; j < n; j++)
-                apply_force(particles[i], particles[j]);
+
+            // traverse included neighbors
+            for (int offsetX = -1; offsetX <= 1; offsetX++) {
+                for (int offsetY = -1; offsetY <= 1; offsetY++) {
+                    linkedlist *collisions = grid_get_collisions_at_loc(
+                            (particles[i].x) + offsetX, (particles[i].y) + offsetY
+                    );
+
+                    while (collisions) {
+                        apply_force(particles[i], *(collisions->data));
+                        collisions = collisions->next;
+                    }
+                }
+            }
         }
 
-        //
         //  move particles
-        //
-        for (int i = 0; i < n; i++)
+        //  and update their position in the grid
+        for (int i = 0; i < n; i++) {
+            grid_remove(&particles[i]);
             move(particles[i]);
+            grid_add(&particles[i]);
+        }
 
-        //
         //  save if necessary
-        //
         if (fsave && (step % SAVEFREQ) == 0)
             save(fsave, n, particles);
     }
