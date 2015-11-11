@@ -40,7 +40,7 @@ void grid_remove(particle_t *particle) {
     int coordinate = (int)(particle->x/0.01) * (int)sizeD + (int)(particle->y/0.01);
 
     struct linkedlist *listElem = grid[coordinate];
-    struct linkedlist *prevElem;
+    struct linkedlist *prevElem = grid[coordinate];
 
     while(listElem && (listElem->data != particle)) {
         prevElem = listElem;
@@ -49,7 +49,7 @@ void grid_remove(particle_t *particle) {
 
     if (listElem) {
         prevElem->next = listElem->next;
-        free(listElem);
+        //free(listElem);
     }
 }
 

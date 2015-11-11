@@ -49,7 +49,6 @@ int main(int argc, char **argv) {
                 collisions = collisions->next;
 	    }
         }
-	printf("*DONE* applied force to all\n");
 
         //  move particles
         //  and update their position in the grid
@@ -58,8 +57,6 @@ int main(int argc, char **argv) {
             move(particles[i]);
             grid_add(&particles[i]);
 	}
-
-	printf("*DONE* moving particles\n");
 
         //  save if necessary
         if (fsave && (step % SAVEFREQ) == 0)
