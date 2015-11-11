@@ -1,4 +1,4 @@
-Initialising grid with size 4738840.NSTEP = 0
+NSTEP = 0
 NSTEP = 1
 NSTEP = 2
 NSTEP = 3
@@ -998,21 +998,21 @@ NSTEP = 996
 NSTEP = 997
 NSTEP = 998
 NSTEP = 999
-n = 500, simulation time = 2.71328 seconds
-Application 61164227 resources: utime ~3s, stime ~0s, Rss ~16128, inblocks ~2609, outblocks ~8629
+n = 500, simulation time = 2.76567 seconds
+Application 61166481 resources: utime ~3s, stime ~0s, Rss ~16128, inblocks ~2609, outblocks ~8629
 
  + --------------------------------------------------------------------------
  +        Job name: job-hopper-serial
- +          Job Id: 13574146.hopque01
+ +          Job Id: 13574249.hopque01
  +          System: hopper
- +     Queued Time: Wed Nov 11 01:33:28 2015
- +      Start Time: Wed Nov 11 01:34:33 2015
- + Completion Time: Wed Nov 11 01:34:38 2015
+ +     Queued Time: Wed Nov 11 02:13:41 2015
+ +      Start Time: Wed Nov 11 02:14:49 2015
+ + Completion Time: Wed Nov 11 02:14:55 2015
  +            User: crashh
- +        MOM Host: nid04754
+ +        MOM Host: nid05611
  +           Queue: debug
  +  Req. Resources: mppdepth=1,mppnodect=1,mppnppn=1,mppwidth=1,walltime=00:10:00
- +  Used Resources: cput=00:00:00,energy_used=0,mem=5760kb,vmem=135176kb,walltime=00:00:08
+ +  Used Resources: cput=00:00:00,energy_used=0,mem=0kb,vmem=0kb,walltime=00:00:08
  +     Acct String: m947
  +   PBS_O_WORKDIR: /global/u1/c/crashh/DM818-Mandatory-Assignment-2/sources/hopper
  +     Submit Args: job-hopper-serial

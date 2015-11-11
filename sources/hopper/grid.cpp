@@ -59,11 +59,11 @@ struct linkedlist* grid_get_collisions(particle_t *particle) {
 
 struct linkedlist* grid_get_collisions_at_loc(double x, double y) {
     // Handle incorrect positions:
-    if (x < 0 || y < 0)
-        return null;
-    if (x > sizeD-1 || y > sizeD-1)
-        return null;
+    if (x/0.01 < 0 || y/0.01 < 0)
+        return NULL;
+    if (x/0.01 > sizeD-1 || y/0.01 > sizeD-1)
+        return NULL;
 
     int coordinate = (int)(x/0.01) * (int)sizeD + (int)(y/0.01);
     return grid[coordinate];
-
+}

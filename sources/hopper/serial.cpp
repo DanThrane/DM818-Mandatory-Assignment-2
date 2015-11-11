@@ -45,15 +45,15 @@ int main(int argc, char **argv) {
             for (int offsetX=-1; offsetX<=1; offsetX++) {
                 for (int offsetY=-1; offsetY<=1; offsetY++) {
                     linkedlist *collisions = grid_get_collisions_at_loc(
-                        (particles[i]->x)+offsetX, (particles[i]->y)+offsetY
+                        (particles[i].x)+offsetX, (particles[i].y)+offsetY
                     );
-                    // TODO: this check might not catch all null values.
-                    while (collisions != 0) {
+        
+		    while (collisions) {
                         apply_force(particles[i], *(collisions->data));
                         collisions = collisions->next;    
                     }
-                }
-	        }
+		}
+	    }
         }
 
         //  move particles
