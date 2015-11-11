@@ -1,14 +1,28 @@
 #include <vector>
 #include <algorithm>
+#include <assert.h>
 
 #include "grid.h"
 
 std::vector<std::vector<particle_t *> > grid;
 int sizeD;
 
+int get_particle_coordinate(const particle_t *particle);
+
 void grid_init(double size) {
     sizeD = (int) (size + 1);
     grid.resize((unsigned long) (sizeD * sizeD));
+}
+
+void validate_grid(int particle_count) {
+    int particles_in_system = 0;
+    for (int i = 0; i < grid.size(); i++) {
+        for (auto particle : grid[i]) {
+            assert(get_particle_coordinate(particle) == i);
+        }
+        particles_in_system += grid[i].size();
+    }
+    assert(particles_in_system == particle_count);
 }
 
 void grid_add(particle_t *particle) {
@@ -19,20 +33,25 @@ void grid_add(particle_t *particle) {
 
     // I fear the whole double positioning might have eluded me though 
     // and this conversion wont work. Needs to be tested i guess.
-    int coordinate = (int) (particle->x / 0.01) * sizeD + (int) (particle->y / 0.01);
+    int coordinate = get_particle_coordinate(particle);
 
     grid[coordinate].push_back(particle);
 }
 
-void grid_remove(particle_t *particle) {
+int get_particle_coordinate(const particle_t *particle) {
     int coordinate = (int) (particle->x / 0.01) * sizeD + (int) (particle->y / 0.01);
+    return coordinate;
+}
+
+void grid_remove(particle_t *particle) {
+    int coordinate = get_particle_coordinate(particle);
 
     std::vector<particle_t *> &cell = grid[coordinate];
     cell.erase(std::remove(cell.begin(), cell.end(), particle), cell.end());
 }
 
 std::vector<particle_t *> grid_get_collisions(particle_t *particle) {
-    int coordinate = (int) (particle->x / 0.01) * sizeD + (int) (particle->y / 0.01);
+    int coordinate = get_particle_coordinate(particle);
     return grid[coordinate];
 }
 

@@ -39,7 +39,7 @@ int runSerialWithParticles(FILE *fsave, int n, particle_t *particles) {
     //  simulate a number of time steps
     double simulation_time = read_timer();
     for (int step = 0; step < NSTEPS; step++) {
-
+        validate_grid(n);
         printf("NSTEP = %i\n", step);
 
         //  compute forces
