@@ -61,7 +61,7 @@ struct linkedlist* grid_get_collisions_at_loc(double x, double y) {
     // Handle incorrect positions:
     if (x < 0 || y < 0)
         return null;
-    if (x > sizeD-1 || y > sizeD-1)
+    if (x > size-1 || y > size-1)
         return null;
 
     int coordinate = (int)(x/0.01) * (int)sizeD + (int)(y/0.01);
