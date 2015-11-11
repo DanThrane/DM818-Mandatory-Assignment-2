@@ -76,7 +76,7 @@ int runSerialWithParticles(FILE *fsave, int n, particle_t *particles) {
             for (int offsetX = -1; offsetX <= 1; offsetX++) {
                 for (int offsetY = -1; offsetY <= 1; offsetY++) {
                     const std::vector<particle_t *> &cell =
-                            grid_get_collisions_at_loc((particles[i].x) + offsetX, (particles[i].y) + offsetY);
+                            grid_get_collisions_at_neighbor(&particles[i], offsetX, offsetY);
 
                     for (auto particle : cell) {
                         apply_force(particles[i], *particle);
@@ -89,12 +89,11 @@ int runSerialWithParticles(FILE *fsave, int n, particle_t *particles) {
 
 #ifdef DEBUG
             auto all = find_all_colliding_particles(n, particles, particles[i]);
-            assert(all.size() == all_particles_visited.size());
             for (auto particle : all) {
                 if (std::find(all_particles_visited.begin(), all_particles_visited.end(),
                               particle) == all_particles_visited.end()) {
                     printf("expected cell (%lf,%lf) to collide with (%lf,%lf) in iteration %i, it did not.\n",
-                           particle->x, particle->y, particles[i].x, particles[i].y, i);
+                           particle->x, particle->y, particles[i].x, particles[i].y, step);
                     assert(false);
                 }
             }

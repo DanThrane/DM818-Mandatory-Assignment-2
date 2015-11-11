@@ -38,6 +38,11 @@ void grid_add(particle_t *particle) {
     grid[coordinate].push_back(particle);
 }
 
+int get_particle_coordinate(double x, double y) {
+    int coordinate = (int) (x / 0.01) * sizeD + (int) (y / 0.01);
+    return coordinate;
+}
+
 int get_particle_coordinate(const particle_t *particle) {
     int coordinate = (int) (particle->x / 0.01) * sizeD + (int) (particle->y / 0.01);
     return coordinate;
@@ -55,13 +60,14 @@ std::vector<particle_t *> grid_get_collisions(particle_t *particle) {
     return grid[coordinate];
 }
 
-std::vector<particle_t *> grid_get_collisions_at_loc(double x, double y) {
-    // Handle incorrect positions:
-    if (x / 0.01 < 0 || y / 0.01 < 0)
-        return std::vector<particle_t *>();
-    if (x / 0.01 > sizeD - 1 || y / 0.01 > sizeD - 1)
-        return std::vector<particle_t *>();
+std::vector<particle_t *> grid_get_collisions_at_neighbor(particle_t *particle, int offsetX, int offsetY) {
+    int coordinate = get_particle_coordinate(particle);
+    int x = (coordinate % sizeD) + offsetX;
+    int y = (coordinate / sizeD) + offsetY;
 
-    int coordinate = (int) (x / 0.01) * sizeD + (int) (y / 0.01);
-    return grid[coordinate];
+    if (x < 0 || y < 0 || x >= sizeD || y >= sizeD) {
+        return std::vector<particle_t *>();
+    }
+
+    return grid[coordinate + (offsetY * 23) + offsetX];
 }
