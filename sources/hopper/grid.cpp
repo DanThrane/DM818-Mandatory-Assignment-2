@@ -5,10 +5,11 @@
 #include "grid.h"
 
 struct linkedlist **grid;
-double sizeD;
+int sizeD;
 
 void grid_init(double size) {
-    sizeD = size;
+    printf("Initialising grid with size %i.", size);
+    sizeD = size+1;
     grid = (struct linkedlist**) malloc(sizeof(struct linkedlist*) * (int)sizeD * (int)sizeD);    
     memset(grid, 0, sizeof(struct linkedlist*) * (int)sizeD * (int)sizeD);
 }

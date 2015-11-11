@@ -26,8 +26,7 @@ int main(int argc, char **argv) {
     init_particles(n, particles);
 
     // new additions for linear runstime
-	double size = size = sqrt(0.0005 * n);
-	grid_init(size);
+	grid_init(sqrt(0.0005 * n)/cutoff);
 	for (int i = 0; i < n; ++i) {
 		grid_add(&particles[i]);
 	}
