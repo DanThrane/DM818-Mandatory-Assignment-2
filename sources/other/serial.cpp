@@ -12,7 +12,7 @@
 // note: i don't expect this to compile.
 int runSerialImplementation(int argc, char **argv) {
 #ifdef DEBUG
-    printf("This is a debug build!\n");
+    printf("This is a debug build - This will have a large impact on the performance!\n");
 #endif
 
     if (find_option(argc, argv, "-h") >= 0) {
