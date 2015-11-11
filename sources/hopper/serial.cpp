@@ -26,7 +26,7 @@ int main(int argc, char **argv) {
     init_particles(n, particles);
 
     // new additions for linear runstime
-	grid_init(sqrt(0.0005 * n)/cutoff);
+	grid_init(sqrt(0.0005 * n)/0.01);
 	for (int i = 0; i < n; ++i) {
 		grid_add(&particles[i]);
 	}
@@ -39,18 +39,14 @@ int main(int argc, char **argv) {
 
         //  compute forces
         for (int i = 0; i < n; i++) {
-	    printf("i = %i\n", i);
             particles[i].ax = particles[i].ay = 0;
             linkedlist *collisions = grid_get_collisions(&particles[i]);
             while (collisions != 0) {
                 // TODO: Currently this will ONLY calculate direct collisions,
                 // need to be expanded to all grid locations / neighbors around 
 		// TODO: Segfaults because while check dont seem to work?
-		printf("begin apply force\n");
 		apply_force(particles[i], *(collisions->data));
-		printf("apply force done\n");
                 collisions = collisions->next;
-		printf("collisions iteration done\n");
 	    }
         }
 	printf("*DONE* applied force to all\n");
@@ -62,6 +58,8 @@ int main(int argc, char **argv) {
             move(particles[i]);
             grid_add(&particles[i]);
 	}
+
+	printf("*DONE* moving particles\n");
 
         //  save if necessary
         if (fsave && (step % SAVEFREQ) == 0)

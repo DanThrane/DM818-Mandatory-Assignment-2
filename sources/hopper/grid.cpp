@@ -3,6 +3,7 @@
 #include <string.h>
 #include <math.h>
 #include "grid.h"
+#include "common.h"
 
 struct linkedlist **grid;
 int sizeD;
