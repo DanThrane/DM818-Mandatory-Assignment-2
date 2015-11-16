@@ -19,3 +19,5 @@ std::vector<particle_t *> grid_get_collisions_at_neighbor(particle_t *particle, 
 int get_particle_coordinate(const particle_t *particle);
 
 std::vector<particle_t *> grid_get_at(int coordinate);
+
+void grid_reset();

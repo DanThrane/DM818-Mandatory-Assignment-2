@@ -14,6 +14,11 @@ void grid_init(double size) {
     grid.resize((unsigned long) (gridColumns * gridColumns));
 }
 
+void grid_reset() {
+    grid.clear();
+    grid.resize((unsigned long) (gridColumns * gridColumns));
+}
+
 void validate_grid(int particle_count) {
     int particles_in_system = 0;
     for (int i = 0; i < grid.size(); i++) {
