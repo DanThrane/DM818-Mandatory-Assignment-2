@@ -1,0 +1,146 @@
+\documentclass[a4paper,11pt,oneside]{book}
+
+\usepackage[english]{babel}
+\usepackage[showframe=false]{geometry}
+\usepackage[usenames,dvipsnames]{xcolor}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{changepage}
+\usepackage[]{algorithm2e}
+\usepackage{amssymb}
+\usepackage{amsmath}
+\usepackage{graphicx}
+\usepackage{listings}
+\usepackage{verbatimbox}
+\usepackage{ulem}
+\usepackage{fancyvrb}
+\usepackage{float}
+\usepackage{hyperref}
+\usepackage[parfill]{parskip}
+\usepackage{tikz}
+\usepackage{pdflscape}
+\usepackage{minted}
+\usepackage{titlesec}
+\usepackage{titleps}
+\usepackage{lastpage}
+\usepackage{fancyhdr}
+\usepackage{etoolbox}
+%Following overwrites the page style for chapters
+\patchcmd{\chapter}{\thispagestyle{plain}}{\thispagestyle{ruledChapter}}{}{}
+
+%New page style for chapters
+\newpagestyle{ruledChapter}{
+	\setfoot{}{\thepage\ of \pageref{LastPage}}{}
+	\footrule
+	\renewcommand\makefootrule{\color{black}\rule[\baselineskip]{\linewidth}{0.4pt}}
+}
+%New page style for rest
+\newpagestyle{ruled}{
+	\sethead{\raggedright \chaptername\ \thechapter :\ \chaptertitle}{}{}
+	\headrule
+	\setfoot{}{\thepage\ of \pageref{LastPage}}{}
+	\footrule
+	\renewcommand\makeheadrule{\color{black}\rule[-.3\baselineskip]{\linewidth}{0.4pt}}
+	\renewcommand\makefootrule{\color{black}\rule[\baselineskip]{\linewidth}{0.4pt}}
+}
+
+\expandafter\def\csname PY@tok@err\endcsname{}
+\newcommand{\HRule}{\rule{\linewidth}{0.5mm}}
+\newcommand{\specialcell}[2][c]{%
+  \begin{tabular}[#1]{@{}c@{}}#2\end{tabular}}
+
+\addtocontents{toc}{\protect\thispagestyle{empty}}
+
+\title{}
+\author{}
+\date{} 
+
+\begin{document}
+\begin{titlepage}
+\begin{center}
+
+%-----------------------------------------------------------------
+%							FRONTPAGE
+%-----------------------------------------------------------------
+\thispagestyle{empty}
+\includegraphics[width=0.55\textwidth]{logo.pdf}\\[1cm]    
+\textsc{\Large DM818 Assignment 2}\\[0.5cm]
+
+% Title
+\begin{Huge}
+\textbf{Parallelize Particle Simulation}
+\end{Huge}
+
+\vspace{4cm}
+
+% Author and supervisor
+\begin{minipage}{1\textwidth}
+\begin{center}
+\emph{}\\
+
+Dan \textsc{Sebastian Thrane}\\
+\verb!<dathr12@student.sdu.dk>!\\
+
+Lars \textsc{Thomasen}\\
+\verb!<latho12@student.sdu.dk>!\\
+
+\end{center}
+\end{minipage}
+\begin{minipage}{0.4\textwidth}
+\end{minipage}
+
+\vfill
+\begin{tabular}{ll}
+    Aligned SSE: yes \\
+    Unaligned SSE: no \\
+\end{tabular}
+\vfill
+
+% Bottom of the page
+{\large Winter 2015}\\
+
+\end{center}
+\end{titlepage}
+
+%-----------------------------------------------------------------
+%							   TOC
+%-----------------------------------------------------------------
+\renewcommand{\contentsname}{Table of Contents}
+\tableofcontents
+\thispagestyle{empty}
+
+%-----------------------------------------------------------------
+%						  ACTUAL REPORT
+%-----------------------------------------------------------------
+\pagestyle{ruled}
+\chapter{Introduction}
+\setcounter{section}{1}
+
+\section{Work Load}
+%A statement of who contributed with what.
+The distribution of the workload has been equal, such that contributions to each others ideas and implementations have been made.
+
+\chapter{Making the implementation linear}
+
+
+\chapter{Making the implementation parallel}
+%A plot in log-log scale that shows that your serial and parallel codes run in O(n) time and a description of the data structures that you used to achieve it.
+%A description of the synchronization you used in the shared memory implementation.
+%A description of the communication you used in the distributed memory implementation.
+%A description of the design choices that you tried and how did they affect the performance.
+%Speedup plots that show how closely your parallel codes approach the idealized p-times speedup and a discussion on whether it is possible to do better.
+%Where does the time go? Consider breaking down the runtime into computation time, synchronization time and/or communication time. How do they scale with p?
+%A discussion on using pthreads, OpenMP and MPI for this assignment.
+
+\chapter{Conclusion}
+
+
+%-----------------------------------------------------------------
+%						     APPENDIX
+%-----------------------------------------------------------------
+%\newpage
+%\newgeometry{left=2.5cm,right=2.5cm}
+%\chapter{Appendix}
+%\section{Source code}
+
+\end{document}
