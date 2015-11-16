@@ -107,6 +107,14 @@ int main(int argc, char **argv) {
     printf("I am %d and I will receive %d\n", rank, localCount);
     MPI_Scatterv(particlesToSend, sendCount, sendDisplacement, PARTICLE, localParticles, localCount, PARTICLE, 0,
                  MPI_COMM_WORLD);
+
+    int prevGhostCount;
+    particle_t *prevGhostZone;
+
+    int nextGhostCount;
+    particle_t *nextGhostZone;
+
+
 #ifdef DEBUG
     if (rank == 0) {
         for (int i = 0; i < localCount; i++) {
