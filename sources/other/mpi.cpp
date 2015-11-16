@@ -1,6 +1,9 @@
 #include <mpi.h>
 #include <unistd.h>
+#include <math.h>
+#include <assert.h>
 
+#include "grid.h"
 #include "common.h"
 
 void wait_for_debugger() {
@@ -34,8 +37,6 @@ int main(int argc, char **argv) {
     MPI_Comm_size(MPI_COMM_WORLD, &n_proc);
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
-//    if (rank == 0) { wait_for_debugger(); }
-
     //  allocate generic resources
     FILE *fsave = savename && rank == 0 ? fopen(savename, "w") : NULL;
     particle_t *particles = (particle_t *) malloc(n * sizeof(particle_t));
@@ -44,52 +45,72 @@ int main(int argc, char **argv) {
     MPI_Type_contiguous(6, MPI_DOUBLE, &PARTICLE);
     MPI_Type_commit(&PARTICLE);
 
-    //  set up the data partitioning across processors
-    int particle_per_proc = (n + n_proc - 1) / n_proc;
-    int *partition_offsets = (int *) malloc((n_proc + 1) * sizeof(int));
-    for (int i = 0; i < n_proc + 1; i++) {
-        partition_offsets[i] = min(i * particle_per_proc, n);
-    }
-
-    int *partition_sizes = (int *) malloc(n_proc * sizeof(int));
-    for (int i = 0; i < n_proc; i++) {
-        partition_sizes[i] = partition_offsets[i + 1] - partition_offsets[i];
-    }
-
-    //  allocate storage for local partition
-    int nlocal = partition_sizes[rank];
-    particle_t *local = (particle_t *) malloc(nlocal * sizeof(particle_t));
-
     //  initialize and distribute the particles (that's fine to leave it unoptimized)
     set_size(n);
     if (rank == 0) {
         init_particles(n, particles);
-    }
-    MPI_Scatterv(particles, partition_sizes, partition_offsets, PARTICLE, local, nlocal, PARTICLE, 0, MPI_COMM_WORLD);
 
-    //  simulate a number of time steps
-    double simulation_time = read_timer();
-    for (int step = 0; step < NSTEPS; step++) {
-        //  collect all global data locally (not good idea to do)
-        MPI_Allgatherv(local, nlocal, PARTICLE, particles, partition_sizes, partition_offsets, PARTICLE,
-                       MPI_COMM_WORLD);
-
-        //  save current step if necessary (slightly different semantics than in other codes)
-        if (fsave && (step % SAVEFREQ) == 0) {
-            save(fsave, n, particles);
+        grid_init(sqrt(0.0005 * n) / 0.01);
+        for (int i = 0; i < n; ++i) {
+            grid_add(&particles[i]);
         }
 
-        //  compute all forces
-        for (int i = 0; i < nlocal; i++) {
-            local[i].ax = local[i].ay = 0;
-            for (int j = 0; j < n; j++) {
-                apply_force(local[i], particles[j]);
+        int counter = 0;
+        particle_t *particlesToSend = (particle_t *) malloc(n * sizeof(particle_t));
+        for (int i = 0; i < gridColumns * gridColumns; i++) {
+            auto cell = grid_get_at(i);
+            for (auto particle : cell) {
+                memcpy(particlesToSend + counter, particle, sizeof(particle_t));
+                counter++;
+            }
+        }
+
+#ifdef DEBUG
+        counter = 0;
+        for (int i = 0; i < gridColumns * gridColumns; i++) {
+            auto cell = grid_get_at(i);
+            for (auto particle : cell) {
+                particle_t &copied = particlesToSend[counter];
+                assert(copied.ax == particle->ax && copied.ay == particle->ay && copied.vx == particle->vx
+                       && copied.vy == particle->vy && copied.x == particle->x && copied.y == particle->y);
+                counter++;
+            }
+        }
+        printf("done copying shit\n");
+#endif
+    }
+/*
+
+    double simulation_time = read_timer();
+    for (int step = 0; step < NSTEPS; step++) {
+        for (int i = 0; i < n; i++) {
+
+            particles[i].ax = particles[i].ay = 0;
+
+            // traverse included neighbors
+            for (int offsetX = -1; offsetX <= 1; offsetX++) {
+                for (int offsetY = -1; offsetY <= 1; offsetY++) {
+                    const std::vector<particle_t *> &cell =
+                            grid_get_collisions_at_neighbor(&particles[i], offsetX, offsetY);
+
+                    for (auto particle : cell) {
+                        apply_force(particles[i], *particle);
+                    }
+                }
             }
         }
 
         //  move particles
-        for (int i = 0; i < nlocal; i++) {
-            move(local[i]);
+        //  and update their position in the grid
+        for (int i = 0; i < n; i++) {
+            grid_remove(&particles[i]);
+            move(particles[i]);
+            grid_add(&particles[i]);
+        }
+
+        //  save if necessary
+        if (fsave && (step % SAVEFREQ) == 0) {
+            save(fsave, n, particles);
         }
     }
     simulation_time = read_timer() - simulation_time;
@@ -97,12 +118,10 @@ int main(int argc, char **argv) {
     if (rank == 0) {
         printf("n = %d, n_procs = %d, simulation time = %g s\n", n, n_proc, simulation_time);
     }
-
-    //  release resources
-    free(partition_offsets);
-    free(partition_sizes);
-    free(local);
-    free(particles);
+*/
+    if (rank == 0) { printf("'done'\n"); }
+    // Release resources
+    // TODO Release stuff
     if (fsave) {
         fclose(fsave);
     }

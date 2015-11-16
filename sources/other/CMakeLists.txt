@@ -19,9 +19,11 @@ add_executable(mpi mpi.cpp mpi.h ${SOURCE_FILES})
 target_link_libraries(mpi ${MPI_LIBRARIES})
 
 if(MPI_COMPILE_FLAGS)
-    set_target_properties(hello PROPERTIES COMPILE_FLAGS "${MPI_COMPILE_FLAGS}")
+    set_target_properties(mpi PROPERTIES COMPILE_FLAGS "${MPI_COMPILE_FLAGS}")
 endif()
 
 if(MPI_LINK_FLAGS)
-    set_target_properties(hello PROPERTIES LINK_FLAGS "${MPI_LINK_FLAGS}")
+    set_target_properties(mpi PROPERTIES LINK_FLAGS "${MPI_LINK_FLAGS}")
 endif()
+
+target_compile_definitions(mpi PRIVATE DEBUG)

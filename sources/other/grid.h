@@ -2,7 +2,7 @@
 
 #include "common.h"
 
-extern int sizeD;
+extern int gridColumns;
 
 void grid_init(double size);
 
@@ -17,3 +17,5 @@ std::vector<particle_t *> grid_get_collisions(particle_t *particle);
 std::vector<particle_t *> grid_get_collisions_at_neighbor(particle_t *particle, int offsetX, int offsetY);
 
 int get_particle_coordinate(const particle_t *particle);
+
+std::vector<particle_t *> grid_get_at(int coordinate);

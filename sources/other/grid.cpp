@@ -5,13 +5,13 @@
 #include "grid.h"
 
 std::vector<std::vector<particle_t *> > grid;
-int sizeD;
+int gridColumns;
 
 int get_particle_coordinate(const particle_t *particle);
 
 void grid_init(double size) {
-    sizeD = (int) (size + 1);
-    grid.resize((unsigned long) (sizeD * sizeD));
+    gridColumns = (int) (size + 1);
+    grid.resize((unsigned long) (gridColumns * gridColumns));
 }
 
 void validate_grid(int particle_count) {
@@ -39,12 +39,12 @@ void grid_add(particle_t *particle) {
 }
 
 int get_particle_coordinate(double x, double y) {
-    int coordinate = (int) (x / 0.01) * sizeD + (int) (y / 0.01);
+    int coordinate = (int) (x / 0.01) * gridColumns + (int) (y / 0.01);
     return coordinate;
 }
 
 int get_particle_coordinate(const particle_t *particle) {
-    int coordinate = (int) (particle->x / 0.01) * sizeD + (int) (particle->y / 0.01);
+    int coordinate = (int) (particle->x / 0.01) * gridColumns + (int) (particle->y / 0.01);
     return coordinate;
 }
 
@@ -60,12 +60,16 @@ std::vector<particle_t *> grid_get_collisions(particle_t *particle) {
     return grid[coordinate];
 }
 
+std::vector<particle_t *> grid_get_at(int coordinate) {
+    return grid[coordinate];
+}
+
 std::vector<particle_t *> grid_get_collisions_at_neighbor(particle_t *particle, int offsetX, int offsetY) {
     int coordinate = get_particle_coordinate(particle);
-    int x = (coordinate % sizeD) + offsetX;
-    int y = (coordinate / sizeD) + offsetY;
+    int x = (coordinate % gridColumns) + offsetX;
+    int y = (coordinate / gridColumns) + offsetY;
 
-    if (x < 0 || y < 0 || x >= sizeD || y >= sizeD) {
+    if (x < 0 || y < 0 || x >= gridColumns || y >= gridColumns) {
         return std::vector<particle_t *>();
     }
 
