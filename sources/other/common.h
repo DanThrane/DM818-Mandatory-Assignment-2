@@ -30,7 +30,6 @@ typedef struct {
     double vy;
     double ax;
     double ay;
-    int id;
 } particle_t;
 
 //

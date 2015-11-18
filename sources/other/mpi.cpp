@@ -240,7 +240,7 @@ void initSystem() {
     validateScatter(particlesToSend, ownedParticles, localCount);
 #endif
 
-    if (rank == 0) { wait_for_debugger(); }
+    //if (rank == 0) { wait_for_debugger(); }
 
     // Initialize world zones
     prevGhostCount = gridColumns;
@@ -267,8 +267,7 @@ void validateScatter(particle_t *particlesToSend, particle_t *localParticles, in
             particle_t &particle = localParticles[i];
 
             assert(copied.ax == particle.ax && copied.ay == particle.ay && copied.vx == particle.vx
-                   && copied.vy == particle.vy && copied.x == particle.x && copied.y == particle.y
-                   && copied.id == particle.id);
+                   && copied.vy == particle.vy && copied.x == particle.x && copied.y == particle.y);
         }
         printf("Local variables match\n");
     }
@@ -325,7 +324,6 @@ void initMPI(int &argc, char **&argv) {//  set up MPI
     MPI_Comm_size(MPI_COMM_WORLD, &maxRank);
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Type_contiguous(6, MPI_DOUBLE, &particleType);
-    MPI_Type_contiguous(1, MPI_INT, &particleType);
     MPI_Type_commit(&particleType);
 }
 
