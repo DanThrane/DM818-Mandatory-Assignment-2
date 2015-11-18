@@ -1,13 +1,34 @@
 #include <vector>
 #include <algorithm>
 #include <assert.h>
+#include <unordered_map>
 
 #include "grid.h"
 
 std::vector<std::vector<particle_t *> > grid;
+std::vector<int> startTrack;
+std::vector<int> endTrack;
+std::vector<std::vector<particle_t *> *> consumersTrack;
+
 int gridColumns;
 
 int get_particle_coordinate(const particle_t *particle);
+
+bool disableTrack = false;
+
+void grid_enable_track() {
+    disableTrack = false;
+}
+
+void grid_disable_track() {
+    disableTrack = true;
+}
+
+void grid_track_insertions(int startInclusive, int endExclusive, std::vector<particle_t *> *consumer) {
+    startTrack.push_back(startInclusive);
+    endTrack.push_back(endExclusive);
+    consumersTrack.push_back(consumer);
+}
 
 void grid_init(double size) {
     gridColumns = (int) (size + 1);
@@ -39,6 +60,14 @@ void grid_add(particle_t *particle) {
     // I fear the whole double positioning might have eluded me though 
     // and this conversion wont work. Needs to be tested i guess.
     int coordinate = get_particle_coordinate(particle);
+
+    if (!disableTrack) {
+        for (int i = 0; i < startTrack.size(); i++) {
+            if (coordinate >= startTrack[i] && coordinate < endTrack[i]) {
+                consumersTrack[i]->push_back(particle);
+            }
+        }
+    }
 
     grid[coordinate].push_back(particle);
 }

@@ -20,8 +20,8 @@ void combineResult(FILE *fsave);
 
 void wait_for_debugger();
 
-
 typedef struct {
+    int particleCount;
     particle_t *particles;
     int coordinateStart;
 } GhostZone;
