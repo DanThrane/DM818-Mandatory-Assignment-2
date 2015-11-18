@@ -50,6 +50,7 @@ int main(int argc, char **argv) {
 
     MPI_Datatype PARTICLE;
     MPI_Type_contiguous(6, MPI_DOUBLE, &PARTICLE);
+    MPI_Type_contiguous(1, MPI_INT, &PARTICLE);
     MPI_Type_commit(&PARTICLE);
 
     int sendCount[n_proc];
@@ -129,7 +130,8 @@ int main(int argc, char **argv) {
             particle_t &particle = localParticles[i];
 
             assert(copied.ax == particle.ax && copied.ay == particle.ay && copied.vx == particle.vx
-                   && copied.vy == particle.vy && copied.x == particle.x && copied.y == particle.y);
+                   && copied.vy == particle.vy && copied.x == particle.x && copied.y == particle.y
+                    && copied.id == particle.id);
         }
         printf("Local variables match\n");
     }
@@ -159,8 +161,6 @@ int main(int argc, char **argv) {
             }
         }
 
-//        printf("NSTEP = %i (%d)\n", step, rank);
-
         //  compute forces
         for (int i = 0; i < localCount; i++) {
             localParticles[i].ax = localParticles[i].ay = 0;
@@ -188,7 +188,7 @@ int main(int argc, char **argv) {
         }
 
         //  save if necessary
-        if (step % SAVEFREQ == 0) {
+        if (savename && step % SAVEFREQ == 0) {
             for (int i = 0; i < localCount; i++) {
                 localOutput << localParticles[i].x << " " << localParticles[i].y << "\n";
             }
@@ -197,31 +197,32 @@ int main(int argc, char **argv) {
     }
     simulation_time = read_timer() - simulation_time;
 
-    int counts[n_proc];
-    char *combinedOutput;
-    int *displacements;
+    if (savename) {
+        int counts[n_proc];
+        char *combinedOutput;
+        int *displacements;
 
-    int count = 0;
-    std::string output = localOutput.str();
-    int outputSize = (int) output.size();
+        int count = 0;
+        std::string output = localOutput.str();
+        int outputSize = (int) output.size();
 
-    MPI_Gather(&outputSize, 1, MPI_INT, counts, 1, MPI_INT, 0, MPI_COMM_WORLD);
+        MPI_Gather(&outputSize, 1, MPI_INT, counts, 1, MPI_INT, 0, MPI_COMM_WORLD);
 
-    if (rank == 0) {
-        displacements = (int *) malloc(sizeof(int) * n_proc);
-        for (int i = 0; i < n_proc; i++) {
-            displacements[i] = count;
-            count += counts[i];
+        if (rank == 0) {
+            displacements = (int *) malloc(sizeof(int) * n_proc);
+            for (int i = 0; i < n_proc; i++) {
+                displacements[i] = count;
+                count += counts[i];
+            }
+            printf("Mallocing %d characters\n", count);
+            combinedOutput = (char *) malloc(sizeof(char) * count);
         }
-        printf("Mallocing %d characters\n", count);
-        combinedOutput = (char *) malloc(sizeof(char) * count);
-    }
-    MPI_Gatherv((void *) output.c_str(), outputSize, MPI_CHAR, combinedOutput, counts, displacements, MPI_CHAR, 0,
-                MPI_COMM_WORLD);
+        MPI_Gatherv((void *) output.c_str(), outputSize, MPI_CHAR, combinedOutput, counts, displacements, MPI_CHAR, 0,
+                    MPI_COMM_WORLD);
 
-    if (rank == 0 && fsave) {
-        printf("Hello! %p %p\n", fsave, combinedOutput);
-        fprintf(fsave, combinedOutput);
+        if (rank == 0 && fsave) {
+            fprintf(fsave, combinedOutput);
+        }
     }
 
     if (rank == 0) { printf("n = %d, simulation time = %g seconds\n", n, simulation_time); }
