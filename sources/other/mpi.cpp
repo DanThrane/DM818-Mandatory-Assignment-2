@@ -2,9 +2,12 @@
 #include <unistd.h>
 #include <math.h>
 #include <assert.h>
+#include <sstream>
 
 #include "grid.h"
 #include "common.h"
+
+std::ostringstream localOutput;
 
 void wait_for_debugger() {
     int i = 0;
@@ -42,6 +45,8 @@ int main(int argc, char **argv) {
     particle_t *particles = (particle_t *) malloc(n * sizeof(particle_t));
     particle_t *particlesToSend = (particle_t *) malloc(n * sizeof(particle_t));
     particle_t *localParticles = (particle_t *) malloc(n * sizeof(particle_t));
+
+    printf("fsave %s\n", savename);
 
     MPI_Datatype PARTICLE;
     MPI_Type_contiguous(6, MPI_DOUBLE, &PARTICLE);
@@ -108,11 +113,13 @@ int main(int argc, char **argv) {
     MPI_Scatterv(particlesToSend, sendCount, sendDisplacement, PARTICLE, localParticles, localCount, PARTICLE, 0,
                  MPI_COMM_WORLD);
 
-    int prevGhostCount;
-    particle_t *prevGhostZone;
+    int prevGhostCount = gridColumns;
+    particle_t *prevGhostZone = (particle_t *) malloc(sizeof(particle_t) * prevGhostCount);
+    int prevGhostStart = (cellsPerProcess * rank) - gridColumns;
+    int prevGhostEnd = cellsPerProcess * rank;
 
-    int nextGhostCount;
-    particle_t *nextGhostZone;
+    int nextGhostCount = gridColumns;
+    particle_t *ownedGhostZone = &localParticles[localCount - gridColumns];
 
 
 #ifdef DEBUG
@@ -132,46 +139,93 @@ int main(int argc, char **argv) {
         grid_add(&localParticles[i]);
     }
 
-/*
-
+    //  simulate a number of time steps
     double simulation_time = read_timer();
     for (int step = 0; step < NSTEPS; step++) {
-        for (int i = 0; i < n; i++) {
+        MPI_Barrier(MPI_COMM_WORLD);
+        // Purge the ghost zone from last iteration
+        grid_purge(prevGhostStart, prevGhostEnd);
+        // Send and receive new ghost zones (TODO Do in parallel)
+        if (rank > 0) {
+            MPI_Recv(prevGhostZone, prevGhostCount, PARTICLE, rank - 1, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        }
+        if (rank < n_proc - 1) {
+            MPI_Send(ownedGhostZone, nextGhostCount, PARTICLE, rank + 1, 0, MPI_COMM_WORLD);
+        }
+        // Add the new ghost zone to the grid
+        if (rank > 0) {
+            for (int i = 0; i < prevGhostCount; i++) {
+                grid_add(&prevGhostZone[i]);
+            }
+        }
 
-            particles[i].ax = particles[i].ay = 0;
+//        printf("NSTEP = %i (%d)\n", step, rank);
+
+        //  compute forces
+        for (int i = 0; i < localCount; i++) {
+            localParticles[i].ax = localParticles[i].ay = 0;
 
             // traverse included neighbors
             for (int offsetX = -1; offsetX <= 1; offsetX++) {
                 for (int offsetY = -1; offsetY <= 1; offsetY++) {
                     const std::vector<particle_t *> &cell =
-                            grid_get_collisions_at_neighbor(&particles[i], offsetX, offsetY);
+                            grid_get_collisions_at_neighbor(&localParticles[i], offsetX, offsetY);
 
                     for (auto particle : cell) {
-                        apply_force(particles[i], *particle);
+                        apply_force(localParticles[i], *particle);
                     }
                 }
             }
+
         }
 
         //  move particles
         //  and update their position in the grid
-        for (int i = 0; i < n; i++) {
-            grid_remove(&particles[i]);
-            move(particles[i]);
-            grid_add(&particles[i]);
+        for (int i = 0; i < localCount; i++) {
+            grid_remove(&localParticles[i]);
+            move(localParticles[i]);
+            grid_add(&localParticles[i]);
         }
 
         //  save if necessary
-        if (fsave && (step % SAVEFREQ) == 0) {
-            save(fsave, n, particles);
+        if (step % SAVEFREQ == 0) {
+            for (int i = 0; i < localCount; i++) {
+                localOutput << localParticles[i].x << " " << localParticles[i].y << "\n";
+            }
         }
+        // Communicate to rank 0 with result
     }
     simulation_time = read_timer() - simulation_time;
 
+    int counts[n_proc];
+    char *combinedOutput;
+    int *displacements;
+
+    int count = 0;
+    std::string output = localOutput.str();
+    int outputSize = (int) output.size();
+
+    MPI_Gather(&outputSize, 1, MPI_INT, counts, 1, MPI_INT, 0, MPI_COMM_WORLD);
+
     if (rank == 0) {
-        printf("n = %d, n_procs = %d, simulation time = %g s\n", n, n_proc, simulation_time);
+        displacements = (int *) malloc(sizeof(int) * n_proc);
+        for (int i = 0; i < n_proc; i++) {
+            displacements[i] = count;
+            count += counts[i];
+        }
+        printf("Mallocing %d characters\n", count);
+        combinedOutput = (char *) malloc(sizeof(char) * count);
     }
-*/
+    MPI_Gatherv((void *) output.c_str(), outputSize, MPI_CHAR, combinedOutput, counts, displacements, MPI_CHAR, 0,
+                MPI_COMM_WORLD);
+
+    if (rank == 0 && fsave) {
+        printf("Hello! %p %p\n", fsave, combinedOutput);
+        fprintf(fsave, combinedOutput);
+    }
+
+    if (rank == 0) { printf("n = %d, simulation time = %g seconds\n", n, simulation_time); }
+
     if (rank == 0) { printf("'done'\n"); }
     // Release resources
     // TODO Release stuff

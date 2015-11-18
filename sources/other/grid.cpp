@@ -60,6 +60,13 @@ void grid_remove(particle_t *particle) {
     cell.erase(std::remove(cell.begin(), cell.end(), particle), cell.end());
 }
 
+void grid_purge(int startInclusive, int endExclusive) {
+    for (int i = startInclusive; i < endExclusive; i++) {
+        // TODO Release particles too?
+        grid[i].clear();
+    }
+}
+
 std::vector<particle_t *> grid_get_collisions(particle_t *particle) {
     int coordinate = get_particle_coordinate(particle);
     return grid[coordinate];

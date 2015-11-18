@@ -21,3 +21,5 @@ int get_particle_coordinate(const particle_t *particle);
 std::vector<particle_t *> grid_get_at(int coordinate);
 
 void grid_reset();
+
+void grid_purge(int startInclusive, int endExclusive);
