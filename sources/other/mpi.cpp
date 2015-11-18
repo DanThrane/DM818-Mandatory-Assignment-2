@@ -5,28 +5,16 @@
 #include <sstream>
 
 #include "grid.h"
-
-std::ostringstream localOutput;
-
-int printHelp();
-
-void initMPI(int &argc, char **&argv);
-
-void initializeAtRoot(particle_t *particles, particle_t *particlesToSend, int *sendCount, int *sendDisplacement);
-
-void validateScatter(particle_t *particlesToSend, particle_t *localParticles, int localCount);
-
-void initSystem();
-
-void validateRootInitialization(int currentProcessor, int counter, particle_t *particlesToSend);
-
-void wait_for_debugger();
-
-void combineResult(FILE *fsave);
+#include "mpi.h"
 
 //
 // Global state
 //
+
+/**
+ * Output stream (for particle locations)
+ */
+std::ostringstream localOutput;
 
 /**
  * The number of cells for each process
@@ -67,35 +55,16 @@ int localCount;
  */
 particle_t *ownedParticles;
 
-/**
- * A pointer to the part of the owned particles that is shared with the processor above/below (TODO)
- */
-particle_t *ownedGhostZone;
+GhostZone ownedUpper;
+GhostZone ownedLower;
+
+GhostZone borrowedUpper;
+GhostZone borrowedLower;
 
 /**
- * The number of particles in the owned ghost zone TODO Potential bug, this isn't trivial
+ * Grid coordinate for when the borrowed from below ghost zone starts
  */
-int ownedGhostZoneParticleCount;
-
-/**
- * A pointer to the ghost zone borrowed by the processor above/below
- */
-particle_t *borrowedGhostZone;
-
-/**
- * The number of particles in the borrowed ghost zone TODO Potential bug?
- */
-int prevGhostCount;
-
-/**
- * Grid coordinate for when the borrowed from above/below ghost zone starts
- */
-int prevGhostStart;
-
-/**
- * Grid coordinate for when the borrowed from above/below ghost zone ends
- */
-int prevGhostEnd;
+int borrowedGhostZoneLowerStart;
 
 int main(int argc, char **argv) {
     printf("This is the new one\n");
@@ -112,11 +81,12 @@ int main(int argc, char **argv) {
     double simulation_time = read_timer();
     for (int step = 0; step < NSTEPS; step++) {
         MPI_Barrier(MPI_COMM_WORLD);
+        // TODO Merge
         // Purge the ghost zone from last iteration
-        grid_purge(prevGhostStart, prevGhostEnd);
+        grid_purge(borrowedGhostZoneUpperStart, borrowedGhostZoneUpperStart + gridColumns);
         // Send and receive new ghost zones (TODO Do in parallel)
         if (rank > 0) {
-            MPI_Recv(borrowedGhostZone, prevGhostCount, particleType, rank - 1, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+            MPI_Recv(borrowedGhostZoneUpper, prevGhostCount, particleType, rank - 1, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
         }
         if (rank < maxRank - 1) {
             MPI_Send(ownedGhostZone, ownedGhostZoneParticleCount, particleType, rank + 1, 0, MPI_COMM_WORLD);
@@ -124,7 +94,7 @@ int main(int argc, char **argv) {
         // Add the new ghost zone to the grid
         if (rank > 0) {
             for (int i = 0; i < prevGhostCount; i++) {
-                grid_add(&borrowedGhostZone[i]);
+                grid_add(&borrowedGhostZoneUpper[i]);
             }
         }
 
@@ -236,25 +206,26 @@ void initSystem() {
     MPI_Scatterv(particlesToSend, sendCount, sendDisplacement, particleType, ownedParticles, localCount, particleType,
                  0, MPI_COMM_WORLD);
 
-#ifdef DEBUG
-    validateScatter(particlesToSend, ownedParticles, localCount);
-#endif
+    // Initialize world zones.
+    // TODO We allocate quite a bit of memory here. Does the density provide us with any guarantees?
+    borrowedLower.particles = (particle_t *) malloc(sizeof(particle_t) * globalParticleCount);
+    borrowedUpper.particles = (particle_t *) malloc(sizeof(particle_t) * globalParticleCount);
+    borrowedLower.coordinateStart = (cellsPerProcess * rank) - gridColumns;
+    borrowedUpper.coordinateStart = (cellsPerProcess * rank + 1);
 
-    //if (rank == 0) { wait_for_debugger(); }
-
-    // Initialize world zones
-    prevGhostCount = gridColumns;
-    borrowedGhostZone = (particle_t *) malloc(sizeof(particle_t) * prevGhostCount);
-    prevGhostStart = (cellsPerProcess * rank) - gridColumns;
-    prevGhostEnd = cellsPerProcess * rank;
-    ownedGhostZoneParticleCount = gridColumns;
-    ownedGhostZone = &ownedParticles[localCount - gridColumns];//  allocate generic resources
+    ownedLower.particles = (particle_t *) malloc(sizeof(particle_t) * globalParticleCount);
+    ownedUpper.particles = (particle_t *) malloc(sizeof(particle_t) * globalParticleCount);
+    ownedLower.coordinateStart = cellsPerProcess * rank;
+    ownedUpper.coordinateStart = (cellsPerProcess * rank + 1) - gridColumns;
 
     // Initialize grid with received particles
     for (int i = 0; i < localCount; ++i) {
         grid_add(&ownedParticles[i]);
     }
 
+#ifdef DEBUG
+    validateScatter(particlesToSend, ownedParticles, localCount);
+#endif
 
     free(particles);
     free(particlesToSend);
