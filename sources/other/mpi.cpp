@@ -109,11 +109,11 @@ particle_t *exchangeInsertions(std::vector<particle_t *> &insertions, int multip
     particle_t *prepared = prepareInsertions(insertions);
     particle_t *receiveBuffer;
 
-    MPI_Sendrecv(&sendingCount, 1, MPI_INT, rank + (1 * multiplier), 0, &count, 1, MPI_INT, rank - (1 * multiplier), 0,
+    MPI_Sendrecv(&sendingCount, 1, MPI_INT, rank + (1 * multiplier), 0, &count, 1, MPI_INT, rank + (1 * multiplier), 0,
                  MPI_COMM_WORLD, MPI_STATUS_IGNORE);
     receiveBuffer = (particle_t *) malloc(sizeof(particle_t) * count);
     MPI_Sendrecv(prepared, sendingCount, particleType, rank + (1 * multiplier), 0, receiveBuffer, count, particleType,
-                 rank - (1 * multiplier), 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+                 rank + (1 * multiplier), 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
     *outputCount = count;
     free(prepared);
     return receiveBuffer;
