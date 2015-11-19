@@ -90,11 +90,6 @@ Lars \textsc{Thomasen}\\
 \end{minipage}
 
 \vfill
-\begin{tabular}{ll}
-    Aligned SSE: yes \\
-    Unaligned SSE: no \\
-\end{tabular}
-\vfill
 
 % Bottom of the page
 {\large Winter 2015}\\
@@ -115,22 +110,88 @@ Lars \textsc{Thomasen}\\
 \pagestyle{ruled}
 \chapter{Introduction}
 \setcounter{section}{1}
+This reports documents the second mandatory assignment for the course DM818 Parallel Computing. In this assignment we were given a particle simulation which runs in $O(N^{2})$ time, and were asked to code the following:
 
+\begin{enumerate}
+\item Change the implementation such that it runs in $O(n)$ time.
+\item Parallelize the changed code using MPI.
+\end{enumerate}
+
+In order to measure proper performance gain, we need to optimise the serial algorithm first, and then parallelize that such that the comparison stays fair.
+ 
 \section{Work Load}
 %A statement of who contributed with what.
-The distribution of the workload has been equal, such that contributions to each others ideas and implementations have been made.
+The distribution of the workload has been equal, and pair programming in the imada terminal room has been the preferred method.
 
 \chapter{Making the implementation linear}
+%A plot in log-log scale that shows that your serial and parallel codes run in O(n) time and a description of the data structures that you used to achieve it.
+\section{The supplied algorithm}
+The given algorithm for the serial implementation (and the parallel versions) are as follows, clearly showcasing the $n^{2}$ runtime. This was unacceptable and thus a new algorithm has been developed.
 
+\begin{verbatim}
+for( int i = 0; i < n; i++ )
+{
+	particles[i].ax = particles[i].ay = 0;
+	for (int j = 0; j < n; j++ )
+    apply_force( particles[i], particles[j] );
+}
+\end{verbatim}
+
+The code above shows the culprit, when applying force to all particles, each time all particles are iterated again to do so.
+
+\section{The new algorithm}
+The range for interaction for the particles was reduced to a smaller value, denoted as the "cutoff" value. This cutoff value was showcased as a grey border on a particle in the assignment.
+
+Having a reduced area of interaction, allows us to reduced the amount of particles influencing the amount of force needed to be applied to a given particle, thus we can reduce the second for-loop greatly.
+
+In order to reduce the loop it is necessary to know which particles are within (or atleast close by) the particle we want to apply the force. To do this we needed to develop a data structure to keep track of where the particles are positioned.
+
+This data structure was not needed in the original solution since all particles were simply assumed to be within the cutoff range.
+
+\section{The data structure}
+In order to track the location of the particles, the coordinate system is divided into an grid, each coordinate holding all particles within a single cutoff range. It is then possible for a single particle, at a grid position, to find all particles in the surrounding grid positions, guaranteeing to find atleast all particles within its cutoff range.
+
+\begin{figure}[H]
+  \centering
+  \begin{minipage}[b]{0.4\textwidth}
+    \includegraphics[width=\textwidth]{grid.jpg}
+    \caption{The grid structure, showcasing the size of a single position equals the cutoff size.}
+  \end{minipage}
+  \begin{minipage}[b]{0.4\textwidth}
+    \includegraphics[width=\textwidth]{gridexample.png}
+    \caption{A particle located inside a grid positions, and its influence range.}
+  \end{minipage}
+\end{figure}
+
+This algortihm will include more particles than needed, but an upper bound for how many particles that can be within the 9 grid positions would still be far from $n$.
+% TODO: Should probably see if this can be shown.
+
+\section{The implementation}
+The implementation uses a separate file named \verb!grid.cpp! and \verb!grid.h!. These files holds the data structure and a series of helper methods that allows us to add, get and remove particles to the grid.
+
+The grid itself is 	a vector of vectors with particles.
+
+\begin{verbatim}
+std::vector<std::vector<particle_t *> > grid;
+\end{verbatim}
+
+The coordinate positions consists of doubles, while the grid positions are mapped to integers. To overcome this the coordinate positions are simply converted using the following formulae, which simply moves the decimal two places to the right and casting to int:
+
+\begin{align*}
+\frac{\text{double value}}{0.01}
+\end{align*}
 
 \chapter{Making the implementation parallel}
-%A plot in log-log scale that shows that your serial and parallel codes run in O(n) time and a description of the data structures that you used to achieve it.
 %A description of the synchronization you used in the shared memory implementation.
 %A description of the communication you used in the distributed memory implementation.
 %A description of the design choices that you tried and how did they affect the performance.
+
 %Speedup plots that show how closely your parallel codes approach the idealized p-times speedup and a discussion on whether it is possible to do better.
 %Where does the time go? Consider breaking down the runtime into computation time, synchronization time and/or communication time. How do they scale with p?
+
+\chapter{Discussion on pthreads, OpenMP, and MPI}
 %A discussion on using pthreads, OpenMP and MPI for this assignment.
+
 
 \chapter{Conclusion}
 
