@@ -24,9 +24,3 @@ std::vector<particle_t *> grid_get_at(int coordinate);
 void grid_reset();
 
 void grid_purge(int startInclusive, int endExclusive);
-
-void grid_disable_track();
-
-void grid_enable_track();
-
-void grid_track_insertions(int startInclusive, int endExclusive, std::vector<particle_t *> *consumer);
