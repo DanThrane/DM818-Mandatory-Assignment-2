@@ -39,4 +39,11 @@ typedef struct {
 #define VALIDATE_GHOST_ZONE(zone)
 #endif
 
+#ifdef DEBUG
+#define WHEN_DEBUGGING(expr) expr
+#endif
+#ifndef DEBUG
+#define WHEN_DEBUGGING(expr)
+#endif
+
 #endif //DM818_SERIAL_MPI_H

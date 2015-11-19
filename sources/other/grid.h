@@ -11,7 +11,7 @@ void grid_add(particle_t *particle);
 
 void grid_remove(particle_t *particle);
 
-void validate_grid(int particle_count);
+void validate_grid(int particle_count, const char *const file, int line);
 
 std::vector<particle_t *> grid_get_collisions(particle_t *particle);
 

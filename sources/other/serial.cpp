@@ -61,7 +61,7 @@ int runSerialWithParticles(FILE *fsave, int n, particle_t *particles) {
     double simulation_time = read_timer();
     for (int step = 0; step < NSTEPS; step++) {
 #ifdef DEBUG
-        validate_grid(n);
+        validate_grid(n, __FILE__, __LINE__);
 #endif
         printf("NSTEP = %i\n", step);
 

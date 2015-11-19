@@ -41,15 +41,23 @@ void grid_reset() {
     grid.resize((unsigned long) (gridColumns * gridColumns));
 }
 
-void validate_grid(int particle_count) {
+void validate_grid(int particle_count, const char *const file, int line) {
     int particles_in_system = 0;
     for (int i = 0; i < grid.size(); i++) {
         for (auto particle : grid[i]) {
-            assert(get_particle_coordinate(particle) == i);
+            if (get_particle_coordinate(particle) != i) {
+                printf("Assertion fail at %s:%d\n", file, line);
+                assert(get_particle_coordinate(particle) == i);
+            }
         }
         particles_in_system += grid[i].size();
     }
-    assert(particles_in_system == particle_count);
+    if (particle_count != 0) {
+        if (particles_in_system != particle_count) {
+            printf("Assertion fail at %s:%d\n", file, line);
+            assert(particles_in_system == particle_count);
+        }
+    }
 }
 
 void grid_add(particle_t *particle) {

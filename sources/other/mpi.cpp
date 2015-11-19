@@ -227,6 +227,7 @@ int main(int argc, char **argv) {
 
     initMPI(argc, argv);
     initSystem();
+    WHEN_DEBUGGING(validate_grid(0, __FILE__, __LINE__));
 
     grid_track_insertions(borrowedLower.coordinateStart, borrowedLower.coordinateStart + gridColumns, &insertionsLower);
     grid_track_insertions(borrowedUpper.coordinateStart, borrowedUpper.coordinateStart + gridColumns, &insertionsUpper);
@@ -234,8 +235,11 @@ int main(int argc, char **argv) {
     //  simulate a number of time steps
     double simulation_time = read_timer();
     for (int step = 0; step < NSTEPS; step++) {
+        if (rank == 0) printf("Step %d\n", step);
         MPI_Barrier(MPI_COMM_WORLD);
+        WHEN_DEBUGGING(validate_grid(0, __FILE__, __LINE__));
         exchangeInformationWithNeighborHood();
+        WHEN_DEBUGGING(validate_grid(0, __FILE__, __LINE__));
 
         //  compute forces
         for (int i = 0; i < maxPosition; i++) {
