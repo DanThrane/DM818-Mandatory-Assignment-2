@@ -6,6 +6,7 @@
 
 #include "grid.h"
 #include "mpi.h"
+#include "common.h"
 
 //
 // Global state
@@ -48,12 +49,15 @@ int globalParticleCount;
 /**
  * The amount of particles owned by this processor
  */
-int localCount;
+int maxPosition;
 
 /**
  * The particles owned by this processor
  */
 particle_t *ownedParticles;
+
+int lowerBorder;
+int upperBorder;
 
 GhostZone ownedUpper;
 GhostZone ownedLower;
@@ -73,7 +77,12 @@ void prepareGhostZoneForExchange(GhostZone &zone) {
             zone.particleCount++;
 #ifdef DEBUG
             int coordinate = get_particle_coordinate(particle);
-            assert(coordinate >= zone.coordinateStart && coordinate < zone.coordinateStart + gridColumns);
+            if (!(coordinate >= zone.coordinateStart && coordinate < zone.coordinateStart + gridColumns)) {
+                printf("[%d] Found particle at %d, but not supposed to exceed zone starting at %d. "
+                               "(gridCols = %d, diff = %d)\n", rank, coordinate, zone.coordinateStart, gridColumns,
+                       coordinate - zone.coordinateStart);
+                assert(false);
+            }
 #endif
         }
     }
@@ -142,8 +151,14 @@ void updateGrid(GhostZone &zone, std::vector<particle_t *> &localInsertions) {
 }
 
 void mergeInsertedInLocallyOwned(int insertedCount, particle_t *inserted) {
-    for (int i = 0; i < insertedCount; i++) {
-        grid_add(&inserted[i]);
+    int start = maxPosition;
+
+    // The incoming buffer is a temporary one. Move the particles to the owned buffer
+    memcpy(&ownedParticles[maxPosition], inserted, sizeof(particle_t) * insertedCount);
+    maxPosition += insertedCount;
+
+    for (int i = start; i < start + insertedCount; i++) {
+        grid_add(&ownedParticles[i]);
     }
 }
 
@@ -223,7 +238,7 @@ int main(int argc, char **argv) {
         exchangeInformationWithNeighborHood();
 
         //  compute forces
-        for (int i = 0; i < localCount; i++) { // TODO FIXME localCount is not constant for a single processor!!!!
+        for (int i = 0; i < maxPosition; i++) {
             ownedParticles[i].ax = ownedParticles[i].ay = 0;
 
             // traverse included neighbors
@@ -240,15 +255,25 @@ int main(int argc, char **argv) {
         }
 
         // Move and update particles
-        for (int i = 0; i < localCount; i++) {
-            grid_remove(&ownedParticles[i]);
-            move(ownedParticles[i]);
-            grid_add(&ownedParticles[i]);
+        for (int i = 0; i < maxPosition; i++) {
+            particle_t *particle = &ownedParticles[i];
+            grid_remove(particle);
+            move(*particle);
+            grid_add(particle);
+
+            int coordinate = get_particle_coordinate(particle);
+            if (coordinate >= lowerBorder && coordinate < upperBorder) {
+                // Out of bounds - Particle will be purged soon. Take last element and move it here
+                maxPosition--;
+                if (i != maxPosition) {
+                    memcpy(&ownedParticles[i], &ownedParticles[maxPosition], sizeof(particle_t));
+                }
+            }
         }
 
         //  save if necessary
         if (savename && step % SAVEFREQ == 0) {
-            for (int i = 0; i < localCount; i++) {
+            for (int i = 0; i < maxPosition; i++) {
                 localOutput << ownedParticles[i].x << " " << ownedParticles[i].y << "\n";
             }
         }
@@ -318,9 +343,9 @@ void initSystem() {
     }
 
     // Distribute the particle count to all processors
-    MPI_Scatter(sendCount, 1, MPI_INT, &localCount, 1, MPI_INT, 0, MPI_COMM_WORLD);
+    MPI_Scatter(sendCount, 1, MPI_INT, &maxPosition, 1, MPI_INT, 0, MPI_COMM_WORLD);
     // Distribute the actual particles
-    MPI_Scatterv(particlesToSend, sendCount, sendDisplacement, particleType, ownedParticles, localCount, particleType,
+    MPI_Scatterv(particlesToSend, sendCount, sendDisplacement, particleType, ownedParticles, maxPosition, particleType,
                  0, MPI_COMM_WORLD);
 
     // Initialize world zones.
@@ -335,13 +360,16 @@ void initSystem() {
     ownedLower.coordinateStart = cellsPerProcess * rank;
     ownedUpper.coordinateStart = (cellsPerProcess * (rank + 1)) - gridColumns;
 
+    lowerBorder = ownedLower.coordinateStart;
+    upperBorder = ownedUpper.coordinateStart + gridColumns;
+
     // Initialize grid with received particles
-    for (int i = 0; i < localCount; ++i) {
+    for (int i = 0; i < maxPosition; ++i) {
         grid_add(&ownedParticles[i]);
     }
 
 #ifdef DEBUG
-    validateScatter(particlesToSend, ownedParticles, localCount);
+    validateScatter(particlesToSend, ownedParticles, maxPosition);
 #endif
 
     free(particles);
