@@ -95,7 +95,7 @@ particle_t *prepareInsertions(std::vector<particle_t *> insertions) {
     return result;
 }
 
-particle_t *exchangeInsertions(std::vector<particle_t *> &insertions, int multiplier) {
+particle_t *exchangeInsertions(std::vector<particle_t *> &insertions, int multiplier, int *outputCount) {
     int count;
     int sendingCount = (int) insertions.size();
 
@@ -107,8 +107,64 @@ particle_t *exchangeInsertions(std::vector<particle_t *> &insertions, int multip
     receiveBuffer = (particle_t *) malloc(sizeof(particle_t) * count);
     MPI_Sendrecv(prepared, sendingCount, particleType, rank + (1 * multiplier), 0, receiveBuffer, count, particleType,
                  rank - (1 * multiplier), 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+    *outputCount = count;
     free(prepared);
     return receiveBuffer;
+}
+
+void updateGrid(GhostZone &zone, int insertedCount, particle_t *inserted) {
+    grid_purge(zone.coordinateStart, zone.coordinateStart + gridColumns);
+    for (int i = 0; i < zone.particleCount; i++) {
+        grid_add(&zone.particles[i]);
+    }
+    for (int i = 0; i < insertedCount; i++) {
+        grid_add(&inserted[i]);
+    }
+}
+
+void exchangeInformationAbove(particle_t **insertedLower, int *insertedLowerCount) {
+    if (rank < maxRank - 1) {
+        exchangeParticles(ownedUpper, borrowedLower, 1);
+        *insertedLower = exchangeInsertions(insertionsUpper, 1, insertedLowerCount);
+    }
+}
+
+void exchangeInformationBelow(particle_t ** insertedUpper, int *insertedUpperCount) {
+    if (rank > 0) {
+        exchangeParticles(ownedLower, borrowedUpper, -1);
+        *insertedUpper = exchangeInsertions(insertionsLower, -1, insertedUpperCount);
+    }
+}
+
+void exchangeInformationWithNeighborHood() {
+    // Communicate with neighbours
+    updateGhostZones(ownedUpper);
+    updateGhostZones(ownedLower);
+
+    int insertedUpperCount = 0;
+    particle_t *insertedUpper = NULL;
+    int insertedLowerCount = 0;
+    particle_t *insertedLower = NULL;
+
+    if (rank % 2 == 0) {
+        // Even ranks communicate with processors above us first
+        exchangeInformationAbove(&insertedLower, &insertedLowerCount);
+        exchangeInformationBelow(&insertedUpper, &insertedUpperCount);
+    } else {
+        // Even ranks communicate with processors below us first
+        exchangeInformationBelow(&insertedUpper, &insertedUpperCount);
+        exchangeInformationAbove(&insertedLower, &insertedLowerCount);
+    }
+
+    // Merge
+    grid_disable_track();
+    updateGrid(borrowedUpper, insertedUpperCount, insertedUpper);
+    updateGrid(borrowedLower, insertedLowerCount, insertedLower);
+    grid_enable_track();
+
+    // Release inserted
+    if (insertedLower == NULL) free(insertedLower);
+    if (insertedUpper == NULL) free(insertedUpper);
 }
 
 int main(int argc, char **argv) {
@@ -129,38 +185,7 @@ int main(int argc, char **argv) {
     double simulation_time = read_timer();
     for (int step = 0; step < NSTEPS; step++) {
         MPI_Barrier(MPI_COMM_WORLD);
-        // Communicate with neighbours
-        updateGhostZones(ownedUpper);
-        updateGhostZones(ownedLower);
-        particle_t *insertedUpper = NULL;
-        particle_t *insertedLower = NULL;
-
-        if (rank % 2 == 0) {
-            // Even ranks communicate with processors above us first
-            if (rank < maxRank - 1) {
-                exchangeParticles(ownedUpper, borrowedLower, 1);
-                insertedLower = exchangeInsertions(insertionsUpper, 1);
-            }
-            if (rank > 0) {
-                exchangeParticles(ownedLower, borrowedUpper, -1);
-                insertedUpper = exchangeInsertions(insertionsLower, -1);
-            }
-        } else {
-            // Even ranks communicate with processors below us first
-            if (rank > 0) {
-                exchangeParticles(ownedLower, borrowedUpper, -1);
-                insertedUpper = exchangeInsertions(insertionsLower, -1);
-            }
-            if (rank < maxRank - 1) {
-                exchangeParticles(ownedUpper, borrowedLower, 1);
-                insertedLower = exchangeInsertions(insertionsUpper, 1);
-            }
-        }
-        // Merge
-
-        // Release inserted
-        if (insertedLower == NULL) free(insertedLower);
-        if (insertedUpper == NULL) free(insertedUpper);
+        exchangeInformationWithNeighborHood();
 
         //  compute forces
         for (int i = 0; i < localCount; i++) {
@@ -177,11 +202,9 @@ int main(int argc, char **argv) {
                     }
                 }
             }
-
         }
 
-        //  move particles
-        //  and update their position in the grid
+        // Move and update particles
         for (int i = 0; i < localCount; i++) {
             grid_remove(&ownedParticles[i]);
             move(ownedParticles[i]);
@@ -204,10 +227,7 @@ int main(int argc, char **argv) {
 
     if (rank == 0) { printf("n = %d, simulation time = %g seconds\n", globalParticleCount, simulation_time); }
 
-    if (rank == 0) { printf("'done'\n"); }
-
-    // Release resources
-    // TODO Release stuff
+    // TODO Release resources
     if (fsave) {
         fclose(fsave);
     }
