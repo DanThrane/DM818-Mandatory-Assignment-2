@@ -6,6 +6,7 @@
 
 #include "grid.h"
 #include "mpi.h"
+#include "common.h"
 
 //
 // Global state
@@ -65,6 +66,7 @@ std::vector<particle_t *> insertionsUpper;
 std::vector<particle_t *> insertionsLower;
 
 void prepareGhostZoneForExchange(GhostZone &zone) {
+    if (zone.coordinateStart < 0 || zone.coordinateStart >= (gridColumns * gridColumns) - 1) return;
     // Move the particles from the real grid into the buffer
     zone.particleCount = 0;
     for (int i = zone.coordinateStart; i < zone.coordinateStart + gridColumns; i++) {
@@ -135,7 +137,7 @@ void exchangeInformationAbove(particle_t **insertedLower, int *insertedLowerCoun
     }
 }
 
-void exchangeInformationBelow(particle_t ** insertedUpper, int *insertedUpperCount) {
+void exchangeInformationBelow(particle_t **insertedUpper, int *insertedUpperCount) {
     if (rank > 0) {
         exchangeParticles(ownedLower, borrowedUpper, -1);
         *insertedUpper = exchangeInsertions(insertionsLower, -1, insertedUpperCount);
