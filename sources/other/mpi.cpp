@@ -77,12 +77,19 @@ void prepareGhostZoneForExchange(GhostZone &zone) {
 
 void exchangeParticles(GhostZone &owned, GhostZone &borrowed, int multiplier) {
     // Communicate number of particles in update
-    MPI_Sendrecv(&owned.coordinateStart, 1, MPI_INT, rank + (1 * multiplier), 0, &borrowed.coordinateStart, 1,
-                 MPI_INT, rank - (1 * multiplier), 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+    printf("Exchanging particles between %d and %d\n", rank, rank + (1 * multiplier));
+    MPI_Sendrecv(&owned.particleCount, 1, MPI_INT, rank + (1 * multiplier), 0, &borrowed.particleCount, 1,
+                 MPI_INT, rank + (1 * multiplier), 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+
+    printf("[%d] I will receive %d from %d\n", rank, borrowed.particleCount, rank + (1 * multiplier));
+    printf("[%d] I will send %d to %d\n", rank, owned.particleCount, rank + (1 * multiplier));
+
     // Exchange particles
     MPI_Sendrecv(owned.particles, owned.particleCount, particleType, rank + (1 * multiplier), 0,
-                 borrowed.particles, borrowed.particleCount,
-                 MPI_INT, rank - (1 * multiplier), 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+                 borrowed.particles, borrowed.particleCount, particleType, rank + (1 * multiplier), 0,
+                 MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+
+    printf("Finished exchanging particles between %d and %d\n", rank, rank + (1 * multiplier));
 }
 
 particle_t *prepareInsertions(std::vector<particle_t *> insertions) {
