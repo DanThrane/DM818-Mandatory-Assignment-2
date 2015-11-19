@@ -64,7 +64,7 @@ GhostZone borrowedLower;
 std::vector<particle_t *> insertionsUpper;
 std::vector<particle_t *> insertionsLower;
 
-void updateGhostZones(GhostZone &zone) {
+void prepareGhostZoneForExchange(GhostZone &zone) {
     // Move the particles from the real grid into the buffer
     zone.particleCount = 0;
     for (int i = zone.coordinateStart; i < zone.coordinateStart + gridColumns; i++) {
@@ -112,11 +112,17 @@ particle_t *exchangeInsertions(std::vector<particle_t *> &insertions, int multip
     return receiveBuffer;
 }
 
-void updateGrid(GhostZone &zone, int insertedCount, particle_t *inserted) {
+void updateGrid(GhostZone &zone, std::vector<particle_t *> &localInsertions) {
     grid_purge(zone.coordinateStart, zone.coordinateStart + gridColumns);
     for (int i = 0; i < zone.particleCount; i++) {
         grid_add(&zone.particles[i]);
     }
+    for (auto particle : localInsertions) {
+        grid_add(particle);
+    }
+}
+
+void mergeInsertedInLocallyOwned(int insertedCount, particle_t *inserted) {
     for (int i = 0; i < insertedCount; i++) {
         grid_add(&inserted[i]);
     }
@@ -137,14 +143,14 @@ void exchangeInformationBelow(particle_t ** insertedUpper, int *insertedUpperCou
 }
 
 void exchangeInformationWithNeighborHood() {
-    // Communicate with neighbours
-    updateGhostZones(ownedUpper);
-    updateGhostZones(ownedLower);
-
     int insertedUpperCount = 0;
     particle_t *insertedUpper = NULL;
     int insertedLowerCount = 0;
     particle_t *insertedLower = NULL;
+
+    // Prepare ghost zones such that we're ready to exchange them with our neighbors
+    prepareGhostZoneForExchange(ownedUpper);
+    prepareGhostZoneForExchange(ownedLower);
 
     if (rank % 2 == 0) {
         // Even ranks communicate with processors above us first
@@ -156,11 +162,22 @@ void exchangeInformationWithNeighborHood() {
         exchangeInformationAbove(&insertedLower, &insertedLowerCount);
     }
 
-    // Merge
+    // Disable tracking while we update our ghost zones
     grid_disable_track();
-    updateGrid(borrowedUpper, insertedUpperCount, insertedUpper);
-    updateGrid(borrowedLower, insertedLowerCount, insertedLower);
+
+    // First insert the complete state changes from our neighbor merged with out own local insertions in these zones
+    updateGrid(borrowedUpper, insertionsUpper);
+    updateGrid(borrowedLower, insertionsLower);
+
+    // Then we get the insertions that occurred into our owned zones from our neighbors
+    mergeInsertedInLocallyOwned(insertedLowerCount, insertedLower);
+    mergeInsertedInLocallyOwned(insertedUpperCount, insertedUpper);
+
     grid_enable_track();
+
+    // Clear insertions from last iteration
+    insertionsLower.clear();
+    insertionsUpper.clear();
 
     // Release inserted
     if (insertedLower == NULL) free(insertedLower);
