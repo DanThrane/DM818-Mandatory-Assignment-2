@@ -6,7 +6,6 @@
 
 #include "grid.h"
 #include "mpi.h"
-#include "common.h"
 
 //
 // Global state
@@ -66,12 +65,11 @@ std::vector<particle_t *> insertionsUpper;
 std::vector<particle_t *> insertionsLower;
 
 void prepareGhostZoneForExchange(GhostZone &zone) {
-    if (zone.coordinateStart < 0 || zone.coordinateStart >= (gridColumns * gridColumns) - 1) return;
     // Move the particles from the real grid into the buffer
     zone.particleCount = 0;
     for (int i = zone.coordinateStart; i < zone.coordinateStart + gridColumns; i++) {
         for (auto particle : grid_get_at(i)) {
-            memcpy(&zone.particles[i], particle, sizeof(particle_t));
+            memcpy(&zone.particles[zone.particleCount], particle, sizeof(particle_t));
             zone.particleCount++;
         }
     }
@@ -187,7 +185,6 @@ void exchangeInformationWithNeighborHood() {
 }
 
 int main(int argc, char **argv) {
-    printf("This is the new one\n");
     //  process command line parameters
     globalParticleCount = read_int(argc, argv, "-n", 1000);
     char *savename = read_string(argc, argv, "-o", NULL);
@@ -272,7 +269,6 @@ void combineResult(FILE *fsave) {
             displacements[i] = count;
             count += counts[i];
         }
-        printf("Mallocing %d characters\n", count);
         combinedOutput = (char *) malloc(sizeof(char) * count);
     }
     MPI_Gatherv((void *) output.c_str(), outputSize, MPI_CHAR, combinedOutput, counts, displacements, MPI_CHAR, 0,
@@ -304,7 +300,6 @@ void initSystem() {
 
     // Distribute the particle count to all processors
     MPI_Scatter(sendCount, 1, MPI_INT, &localCount, 1, MPI_INT, 0, MPI_COMM_WORLD);
-    printf("I'm %d and I will receive %d\n", rank, localCount);
     // Distribute the actual particles
     MPI_Scatterv(particlesToSend, sendCount, sendDisplacement, particleType, ownedParticles, localCount, particleType,
                  0, MPI_COMM_WORLD);
@@ -314,12 +309,12 @@ void initSystem() {
     borrowedLower.particles = (particle_t *) malloc(sizeof(particle_t) * globalParticleCount);
     borrowedUpper.particles = (particle_t *) malloc(sizeof(particle_t) * globalParticleCount);
     borrowedLower.coordinateStart = (cellsPerProcess * rank) - gridColumns;
-    borrowedUpper.coordinateStart = (cellsPerProcess * rank + 1);
+    borrowedUpper.coordinateStart = (cellsPerProcess * (rank + 1));
 
     ownedLower.particles = (particle_t *) malloc(sizeof(particle_t) * globalParticleCount);
     ownedUpper.particles = (particle_t *) malloc(sizeof(particle_t) * globalParticleCount);
     ownedLower.coordinateStart = cellsPerProcess * rank;
-    ownedUpper.coordinateStart = (cellsPerProcess * rank + 1) - gridColumns;
+    ownedUpper.coordinateStart = (cellsPerProcess * (rank + 1)) - gridColumns;
 
     // Initialize grid with received particles
     for (int i = 0; i < localCount; ++i) {

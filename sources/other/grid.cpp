@@ -33,6 +33,7 @@ void grid_track_insertions(int startInclusive, int endExclusive, std::vector<par
 void grid_init(double size) {
     gridColumns = (int) (size + 1);
     grid.resize((unsigned long) (gridColumns * gridColumns));
+    printf("Grid size: %d\n", (int) grid.size());
 }
 
 void grid_reset() {
