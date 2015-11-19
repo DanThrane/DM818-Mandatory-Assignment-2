@@ -71,6 +71,10 @@ void prepareGhostZoneForExchange(GhostZone &zone) {
         for (auto particle : grid_get_at(i)) {
             memcpy(&zone.particles[zone.particleCount], particle, sizeof(particle_t));
             zone.particleCount++;
+#ifdef DEBUG
+            int coordinate = get_particle_coordinate(particle);
+            assert(coordinate >= zone.coordinateStart && coordinate < zone.coordinateStart + gridColumns);
+#endif
         }
     }
 }
@@ -88,6 +92,9 @@ void exchangeParticles(GhostZone &owned, GhostZone &borrowed, int multiplier) {
     MPI_Sendrecv(owned.particles, owned.particleCount, particleType, rank + (1 * multiplier), 0,
                  borrowed.particles, borrowed.particleCount, particleType, rank + (1 * multiplier), 0,
                  MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+
+    VALIDATE_GHOST_ZONE(owned);
+    VALIDATE_GHOST_ZONE(borrowed);
 
     printf("Finished exchanging particles between %d and %d\n", rank, rank + (1 * multiplier));
 }
@@ -112,6 +119,7 @@ particle_t *exchangeInsertions(std::vector<particle_t *> &insertions, int multip
     MPI_Sendrecv(&sendingCount, 1, MPI_INT, rank + (1 * multiplier), 0, &count, 1, MPI_INT, rank + (1 * multiplier), 0,
                  MPI_COMM_WORLD, MPI_STATUS_IGNORE);
     receiveBuffer = (particle_t *) malloc(sizeof(particle_t) * count);
+    printf("[%d] Receiving %d inserted particles!\n", rank, count);
     MPI_Sendrecv(prepared, sendingCount, particleType, rank + (1 * multiplier), 0, receiveBuffer, count, particleType,
                  rank + (1 * multiplier), 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
     *outputCount = count;
@@ -120,6 +128,8 @@ particle_t *exchangeInsertions(std::vector<particle_t *> &insertions, int multip
 }
 
 void updateGrid(GhostZone &zone, std::vector<particle_t *> &localInsertions) {
+    VALIDATE_GHOST_ZONE(zone);
+
     grid_purge(zone.coordinateStart, zone.coordinateStart + gridColumns);
     for (int i = 0; i < zone.particleCount; i++) {
         grid_add(&zone.particles[i]);
@@ -127,6 +137,8 @@ void updateGrid(GhostZone &zone, std::vector<particle_t *> &localInsertions) {
     for (auto particle : localInsertions) {
         grid_add(particle);
     }
+
+    VALIDATE_GHOST_ZONE(zone);
 }
 
 void mergeInsertedInLocallyOwned(int insertedCount, particle_t *inserted) {
@@ -137,14 +149,14 @@ void mergeInsertedInLocallyOwned(int insertedCount, particle_t *inserted) {
 
 void exchangeInformationAbove(particle_t **insertedLower, int *insertedLowerCount) {
     if (rank < maxRank - 1) {
-        exchangeParticles(ownedUpper, borrowedLower, 1);
+        exchangeParticles(ownedUpper, borrowedUpper, 1);
         *insertedLower = exchangeInsertions(insertionsUpper, 1, insertedLowerCount);
     }
 }
 
 void exchangeInformationBelow(particle_t **insertedUpper, int *insertedUpperCount) {
     if (rank > 0) {
-        exchangeParticles(ownedLower, borrowedUpper, -1);
+        exchangeParticles(ownedLower, borrowedLower, -1);
         *insertedUpper = exchangeInsertions(insertionsLower, -1, insertedUpperCount);
     }
 }
@@ -211,7 +223,7 @@ int main(int argc, char **argv) {
         exchangeInformationWithNeighborHood();
 
         //  compute forces
-        for (int i = 0; i < localCount; i++) {
+        for (int i = 0; i < localCount; i++) { // TODO FIXME localCount is not constant for a single processor!!!!
             ownedParticles[i].ax = ownedParticles[i].ay = 0;
 
             // traverse included neighbors

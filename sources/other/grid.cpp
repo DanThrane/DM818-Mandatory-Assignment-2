@@ -91,9 +91,10 @@ void grid_remove(particle_t *particle) {
 }
 
 void grid_purge(int startInclusive, int endExclusive) {
-    for (int i = startInclusive; i < endExclusive; i++) {
-        // TODO Release particles too?
-        grid[i].clear();
+    if (startInclusive >= 0 && endExclusive < grid.size()) {
+        for (int i = startInclusive; i < endExclusive; i++) {
+            grid[i].clear();
+        }
     }
 }
 

@@ -26,4 +26,17 @@ typedef struct {
     int coordinateStart;
 } GhostZone;
 
+#ifdef DEBUG
+#define VALIDATE_GHOST_ZONE(zone) {\
+    assert(zone.particleCount >= 0);\
+    for (int i = 0; i < zone.particleCount; i++) {\
+        int coordinate = get_particle_coordinate(&zone.particles[i]);\
+        assert(coordinate >= zone.coordinateStart && coordinate < zone.coordinateStart + gridColumns);\
+    }\
+}
+#endif
+#ifndef DEBUG
+#define VALIDATE_GHOST_ZONE(zone)
+#endif
+
 #endif //DM818_SERIAL_MPI_H
