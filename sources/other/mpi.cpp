@@ -61,8 +61,8 @@ GhostZone ownedLower;
 GhostZone borrowedUpper;
 GhostZone borrowedLower;
 
-std::vector<particle_t> insertionsUpper;
-std::vector<particle_t> insertionsLower;
+std::vector<particle_t> insertionsIntoUpperBorrowed;
+std::vector<particle_t> insertionsIntoLowerBorrowed;
 
 void prepareGhostZoneForExchange(GhostZone &zone) {
     // Move the particles from the real grid into the buffer
@@ -128,19 +128,19 @@ particle_t *exchangeInsertions(std::vector<particle_t> &insertions, int multipli
 
 void updateGrid(GhostZone &zone, std::vector<particle_t> &localInsertions) {
     VALIDATE_GHOST_ZONE(zone);
-
-    grid_purge(zone.coordinateStart, zone.coordinateStart + gridColumns);
     WHEN_DEBUGGING(validate_grid(0, __FILE__, __LINE__));
+
     for (int i = 0; i < zone.particleCount; i++) {
         grid_add(&zone.particles[i]);
     }
-    WHEN_DEBUGGING(validate_grid(0, __FILE__, __LINE__));
 
     for (auto particle : localInsertions) {
-        grid_add(&particle);
+        mempcpy(&zone.particles[zone.particleCount], &particle, sizeof(particle_t));
+        grid_add(&zone.particles[zone.particleCount]);
+        zone.particleCount++;
     }
-    WHEN_DEBUGGING(validate_grid(0, __FILE__, __LINE__));
 
+    WHEN_DEBUGGING(validate_grid(0, __FILE__, __LINE__));
     VALIDATE_GHOST_ZONE(zone);
 }
 
@@ -159,60 +159,88 @@ void mergeInsertedInLocallyOwned(int insertedCount, particle_t *inserted) {
 
 void exchangeInformationAbove(particle_t **insertedLower, int *insertedLowerCount) {
     if (rank < maxRank - 1) {
+        WHEN_DEBUGGING(validate_grid(0, __FILE__, __LINE__));
         exchangeParticles(ownedUpper, borrowedUpper, 1);
-        *insertedLower = exchangeInsertions(insertionsUpper, 1, insertedLowerCount);
+        WHEN_DEBUGGING(validate_grid(0, __FILE__, __LINE__));
+        *insertedLower = exchangeInsertions(insertionsIntoUpperBorrowed, 1, insertedLowerCount);
+        WHEN_DEBUGGING(validate_grid(0, __FILE__, __LINE__));
     }
 }
 
 void exchangeInformationBelow(particle_t **insertedUpper, int *insertedUpperCount) {
     if (rank > 0) {
+        WHEN_DEBUGGING(validate_grid(0, __FILE__, __LINE__));
         exchangeParticles(ownedLower, borrowedLower, -1);
-        *insertedUpper = exchangeInsertions(insertionsLower, -1, insertedUpperCount);
+        WHEN_DEBUGGING(validate_grid(0, __FILE__, __LINE__));
+        *insertedUpper = exchangeInsertions(insertionsIntoLowerBorrowed, -1, insertedUpperCount);
+        WHEN_DEBUGGING(validate_grid(0, __FILE__, __LINE__));
     }
 }
 
 void exchangeInformationWithNeighborHood() {
     WHEN_DEBUGGING(validate_grid(0, __FILE__, __LINE__));
-    int insertedUpperCount = 0;
-    particle_t *insertedUpper = NULL;
-    int insertedLowerCount = 0;
-    particle_t *insertedLower = NULL;
+#ifdef DEBUG
+    // Validate our local insertions, which are to be exchanged with neighbor
+    int lowerStart = borrowedLower.coordinateStart;
+    int lowerEnd = lowerStart + gridColumns;
+    for (auto particle : insertionsIntoLowerBorrowed) {
+        int coordinate = get_particle_coordinate(&particle);
+        assert(coordinate >= lowerStart && coordinate < lowerEnd);
+    }
+
+    int upperStart = borrowedUpper.coordinateStart;
+    int upperEnd = upperStart + gridColumns;
+    for (auto particle : insertionsIntoUpperBorrowed) {
+        int coordinate = get_particle_coordinate(&particle);
+        assert(coordinate >= upperStart && coordinate < upperEnd);
+    }
+#endif
+    int insertedIntoUpperOwnedCount = 0;
+    particle_t *insertedIntoUpperOwned = NULL;
+    int insertedIntoLowerOwnedCount = 0;
+    particle_t *insertedIntoLowerOwned = NULL;
 
     // Prepare ghost zones such that we're ready to exchange them with our neighbors
     prepareGhostZoneForExchange(ownedUpper);
     prepareGhostZoneForExchange(ownedLower);
 
+    // Purge the borrowed ghost zones, as we will receive new particles soon.
+    WHEN_DEBUGGING(validate_grid(0, __FILE__, __LINE__));
+    grid_purge(borrowedLower.coordinateStart, borrowedLower.coordinateStart + gridColumns);
+    grid_purge(borrowedUpper.coordinateStart, borrowedUpper.coordinateStart + gridColumns);
+    WHEN_DEBUGGING(validate_grid(0, __FILE__, __LINE__));
+
     if (rank % 2 == 0) {
         // Even ranks communicate with processors above us first
-        exchangeInformationAbove(&insertedLower, &insertedLowerCount);
-        exchangeInformationBelow(&insertedUpper, &insertedUpperCount);
+        exchangeInformationAbove(&insertedIntoLowerOwned, &insertedIntoLowerOwnedCount);
+        exchangeInformationBelow(&insertedIntoUpperOwned, &insertedIntoUpperOwnedCount);
     } else {
         // Even ranks communicate with processors below us first
-        exchangeInformationBelow(&insertedUpper, &insertedUpperCount);
-        exchangeInformationAbove(&insertedLower, &insertedLowerCount);
+        exchangeInformationBelow(&insertedIntoUpperOwned, &insertedIntoUpperOwnedCount);
+        exchangeInformationAbove(&insertedIntoLowerOwned, &insertedIntoLowerOwnedCount);
     }
 
     // First insert the complete state changes from our neighbor merged with out own local insertions in these zones
-    updateGrid(borrowedUpper, insertionsUpper);
-    updateGrid(borrowedLower, insertionsLower);
+    WHEN_DEBUGGING(validate_grid(0, __FILE__, __LINE__));
+    updateGrid(borrowedUpper, insertionsIntoUpperBorrowed);
+    updateGrid(borrowedLower, insertionsIntoLowerBorrowed);
     WHEN_DEBUGGING(validate_grid(0, __FILE__, __LINE__));
 
     // Then we get the insertions that occurred into our owned zones from our neighbors
     WHEN_DEBUGGING(validate_grid(0, __FILE__, __LINE__));
-    mergeInsertedInLocallyOwned(insertedLowerCount, insertedLower);
+    mergeInsertedInLocallyOwned(insertedIntoLowerOwnedCount, insertedIntoLowerOwned);
+    mergeInsertedInLocallyOwned(insertedIntoUpperOwnedCount, insertedIntoUpperOwned);
     WHEN_DEBUGGING(validate_grid(0, __FILE__, __LINE__));
-    mergeInsertedInLocallyOwned(insertedUpperCount, insertedUpper);
-    WHEN_DEBUGGING(validate_grid(0, __FILE__, __LINE__));
+
     // Clear insertions from last iteration
-    WHEN_DEBUGGING(validate_grid(0, __FILE__, __LINE__));
-    insertionsLower.clear();
-    WHEN_DEBUGGING(validate_grid(0, __FILE__, __LINE__));
-    insertionsUpper.clear();
+    insertionsIntoLowerBorrowed.clear();
+    insertionsIntoUpperBorrowed.clear();
+
     WHEN_DEBUGGING(validate_grid(0, __FILE__, __LINE__));
 
     // Release inserted
-    if (insertedLower == NULL) free(insertedLower);
-    if (insertedUpper == NULL) free(insertedUpper);
+    if (insertedIntoLowerOwned == NULL) free(insertedIntoLowerOwned);
+    if (insertedIntoUpperOwned == NULL) free(insertedIntoUpperOwned);
 }
 
 int main(int argc, char **argv) {
@@ -285,10 +313,10 @@ int main(int argc, char **argv) {
 
                 if (coordinate >= borrowedLower.coordinateStart &&
                     coordinate < borrowedLower.coordinateStart + gridColumns) {
-                    insertionsLower.push_back(copy);
+                    insertionsIntoLowerBorrowed.push_back(copy);
                 } else if (coordinate >= borrowedUpper.coordinateStart &&
                            coordinate < borrowedUpper.coordinateStart + gridColumns) {
-                    insertionsUpper.push_back(copy);
+                    insertionsIntoUpperBorrowed.push_back(copy);
                 } else {
                     printf("Coordinate: %d, before: %d, lower: %d upper: %d\n", coordinate, beforeStart,
                            borrowedLower.coordinateStart, borrowedUpper.coordinateStart);
@@ -390,7 +418,8 @@ void initSystem() {
     // Distribute the particle count to all processors
     MPI_Scatter(sendCount, 1, MPI_INT, &maxPosition, 1, MPI_INT, 0, MPI_COMM_WORLD);
     // Distribute the actual particles
-    MPI_Scatterv(particlesToSend, sendCount, sendDisplacement, particleType, ownedParticles, maxPosition, particleType,
+    MPI_Scatterv(particlesToSend, sendCount, sendDisplacement, particleType, ownedParticles, maxPosition,
+                 particleType,
                  0, MPI_COMM_WORLD);
 
     // Initialize world zones.
