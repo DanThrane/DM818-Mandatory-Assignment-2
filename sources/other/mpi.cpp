@@ -55,9 +55,6 @@ int maxPosition;
  */
 particle_t *ownedParticles;
 
-int lowerBorder;
-int upperBorder;
-
 GhostZone ownedUpper;
 GhostZone ownedLower;
 
@@ -92,9 +89,6 @@ void exchangeParticles(GhostZone &owned, GhostZone &borrowed, int multiplier) {
     MPI_Sendrecv(&owned.particleCount, 1, MPI_INT, rank + (1 * multiplier), 0, &borrowed.particleCount, 1,
                  MPI_INT, rank + (1 * multiplier), 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 
-//    printf("[%d] I will receive %d from %d\n", rank, borrowed.particleCount, rank + (1 * multiplier));
-//    printf("[%d] I will send %d to %d\n", rank, owned.particleCount, rank + (1 * multiplier));
-
     // Exchange particles
     MPI_Sendrecv(owned.particles, owned.particleCount, particleType, rank + (1 * multiplier), 0,
                  borrowed.particles, borrowed.particleCount, particleType, rank + (1 * multiplier), 0,
@@ -102,8 +96,6 @@ void exchangeParticles(GhostZone &owned, GhostZone &borrowed, int multiplier) {
 
     VALIDATE_GHOST_ZONE(owned);
     VALIDATE_GHOST_ZONE(borrowed);
-
-//    printf("Finished exchanging particles between %d and %d\n", rank, rank + (1 * multiplier));
 }
 
 particle_t *prepareInsertions(std::vector<particle_t> insertions) {
@@ -138,12 +130,16 @@ void updateGrid(GhostZone &zone, std::vector<particle_t> &localInsertions) {
     VALIDATE_GHOST_ZONE(zone);
 
     grid_purge(zone.coordinateStart, zone.coordinateStart + gridColumns);
+    WHEN_DEBUGGING(validate_grid(0, __FILE__, __LINE__));
     for (int i = 0; i < zone.particleCount; i++) {
         grid_add(&zone.particles[i]);
     }
+    WHEN_DEBUGGING(validate_grid(0, __FILE__, __LINE__));
+
     for (auto particle : localInsertions) {
         grid_add(&particle);
     }
+    WHEN_DEBUGGING(validate_grid(0, __FILE__, __LINE__));
 
     VALIDATE_GHOST_ZONE(zone);
 }
@@ -154,6 +150,7 @@ void mergeInsertedInLocallyOwned(int insertedCount, particle_t *inserted) {
     // The incoming buffer is a temporary one. Move the particles to the owned buffer
     memcpy(&ownedParticles[maxPosition], inserted, sizeof(particle_t) * insertedCount);
     maxPosition += insertedCount;
+    if (rank == 0) printf(" += %d\n", insertedCount);
 
     for (int i = start; i < start + insertedCount; i++) {
         grid_add(&ownedParticles[i]);
@@ -175,6 +172,7 @@ void exchangeInformationBelow(particle_t **insertedUpper, int *insertedUpperCoun
 }
 
 void exchangeInformationWithNeighborHood() {
+    WHEN_DEBUGGING(validate_grid(0, __FILE__, __LINE__));
     int insertedUpperCount = 0;
     particle_t *insertedUpper = NULL;
     int insertedLowerCount = 0;
@@ -194,18 +192,23 @@ void exchangeInformationWithNeighborHood() {
         exchangeInformationAbove(&insertedLower, &insertedLowerCount);
     }
 
-    // Disable tracking while we update our ghost zones
     // First insert the complete state changes from our neighbor merged with out own local insertions in these zones
     updateGrid(borrowedUpper, insertionsUpper);
     updateGrid(borrowedLower, insertionsLower);
+    WHEN_DEBUGGING(validate_grid(0, __FILE__, __LINE__));
 
     // Then we get the insertions that occurred into our owned zones from our neighbors
+    WHEN_DEBUGGING(validate_grid(0, __FILE__, __LINE__));
     mergeInsertedInLocallyOwned(insertedLowerCount, insertedLower);
+    WHEN_DEBUGGING(validate_grid(0, __FILE__, __LINE__));
     mergeInsertedInLocallyOwned(insertedUpperCount, insertedUpper);
-
+    WHEN_DEBUGGING(validate_grid(0, __FILE__, __LINE__));
     // Clear insertions from last iteration
+    WHEN_DEBUGGING(validate_grid(0, __FILE__, __LINE__));
     insertionsLower.clear();
+    WHEN_DEBUGGING(validate_grid(0, __FILE__, __LINE__));
     insertionsUpper.clear();
+    WHEN_DEBUGGING(validate_grid(0, __FILE__, __LINE__));
 
     // Release inserted
     if (insertedLower == NULL) free(insertedLower);
@@ -232,6 +235,14 @@ int main(int argc, char **argv) {
         exchangeInformationWithNeighborHood();
         WHEN_DEBUGGING(validate_grid(0, __FILE__, __LINE__));
 
+        for (int i = 0; i < gridColumns * gridColumns; i++) {
+            if (i < borrowedLower.coordinateStart || i > borrowedUpper.coordinateStart + gridColumns) {
+                if (!grid_get_at(i).empty()) {
+                    printf("Not empty at %d (It has %d particles)\n", i, (int) grid_get_at(i).size());
+                }
+            }
+        }
+
         //  compute forces
         for (int i = 0; i < maxPosition; i++) {
             ownedParticles[i].ax = ownedParticles[i].ay = 0;
@@ -251,12 +262,23 @@ int main(int argc, char **argv) {
 
         // Move and update particles
         for (int i = 0; i < maxPosition; i++) {
+#ifdef DEBUG
+            int min = borrowedLower.coordinateStart;
+            int max = borrowedUpper.coordinateStart + gridColumns;
+
+            if (min < 0) min = cellsPerProcess * rank;
+            if (max >= gridColumns * gridColumns) max = (gridColumns * gridColumns) - 1;
+
+            validate_particles_within_sub_grid(min, max);
+#endif
             particle_t *particle = &ownedParticles[i];
+            int beforeStart = get_particle_coordinate(particle);
             grid_remove(particle);
             move(*particle);
             WHEN_DEBUGGING(validate_grid(0, __FILE__, __LINE__));
             int coordinate = get_particle_coordinate(particle);
-            if (coordinate < lowerBorder && coordinate >= upperBorder) { // Out of bounds
+            if (coordinate < borrowedLower.coordinateStart + gridColumns ||
+                coordinate >= borrowedUpper.coordinateStart) { // Out of bounds
                 // Copy the particle and insert into a vector of insertions into a certain ghost zone
                 particle_t copy;
                 memcpy(&copy, particle, sizeof(particle_t));
@@ -268,7 +290,8 @@ int main(int argc, char **argv) {
                            coordinate < borrowedUpper.coordinateStart + gridColumns) {
                     insertionsUpper.push_back(copy);
                 } else {
-                    printf("%d %d %d\n", coordinate, borrowedLower.coordinateStart, borrowedUpper.coordinateStart);
+                    printf("Coordinate: %d, before: %d, lower: %d upper: %d\n", coordinate, beforeStart,
+                           borrowedLower.coordinateStart, borrowedUpper.coordinateStart);
                     assert(false);
                 }
 
@@ -302,6 +325,10 @@ int main(int argc, char **argv) {
 
     if (rank == 0) { printf("n = %d, simulation time = %g seconds\n", globalParticleCount, simulation_time); }
 
+    if (rank == 0 && fsave) {
+        fprintf(fsave, localOutput.str().c_str());
+    }
+
     // TODO Release resources
     if (fsave) {
         fclose(fsave);
@@ -332,10 +359,11 @@ void combineResult(FILE *fsave) {
     }
     MPI_Gatherv((void *) output.c_str(), outputSize, MPI_CHAR, combinedOutput, counts, displacements, MPI_CHAR, 0,
                 MPI_COMM_WORLD);
-
+/*
     if (rank == 0 && fsave) {
         fprintf(fsave, combinedOutput);
     }
+    */
 }
 
 void initSystem() {
@@ -350,7 +378,9 @@ void initSystem() {
     // Initialize grid and world (for all processors)
     grid_init(sqrt(0.0005 * globalParticleCount) / 0.01);
     set_size(globalParticleCount);
-    cellsPerProcess = (gridColumns * gridColumns) / maxRank;
+    cellsPerProcess = gridColumns * (int) ceil(gridColumns / (double) maxRank);
+
+    printf("CellsPerProcess: %d\n", cellsPerProcess);
 
     // Initialize and prepare particles at the master node
     if (rank == 0) {
@@ -373,10 +403,7 @@ void initSystem() {
     ownedLower.particles = (particle_t *) malloc(sizeof(particle_t) * globalParticleCount);
     ownedUpper.particles = (particle_t *) malloc(sizeof(particle_t) * globalParticleCount);
     ownedLower.coordinateStart = cellsPerProcess * rank;
-    ownedUpper.coordinateStart = (cellsPerProcess * (rank + 1)) - gridColumns;
-
-    lowerBorder = ownedLower.coordinateStart;
-    upperBorder = ownedUpper.coordinateStart + gridColumns;
+    ownedUpper.coordinateStart = min((cellsPerProcess * (rank + 1)) - gridColumns, gridColumns * (gridColumns - 1));
 
     // Initialize grid with received particles
     for (int i = 0; i < maxPosition; ++i) {
@@ -384,7 +411,21 @@ void initSystem() {
     }
 
 #ifdef DEBUG
-    validateScatter(particlesToSend, ownedParticles, maxPosition);
+    WHEN_DEBUGGING(validateScatter(particlesToSend, ownedParticles, maxPosition));
+    assert(cellsPerProcess % gridColumns == 0);
+    assert(borrowedLower.coordinateStart % gridColumns == 0);
+    assert(borrowedUpper.coordinateStart % gridColumns == 0);
+    assert(ownedLower.coordinateStart % gridColumns == 0);
+    assert(ownedUpper.coordinateStart % gridColumns == 0);
+
+    if (rank == 0) {
+        printf("---- World zones ----\n");
+        printf("Borrowed lower: %d\n", borrowedLower.coordinateStart);
+        printf("Owned lower: %d\n", ownedLower.coordinateStart);
+        printf("Owned upper: %d\n", ownedUpper.coordinateStart);
+        printf("Borrowed upper: %d\n", borrowedUpper.coordinateStart);
+        printf("---- World zones ----\n");
+    }
 #endif
 
     free(particles);

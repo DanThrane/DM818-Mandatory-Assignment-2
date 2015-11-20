@@ -1,4 +1,6 @@
-for x in range(0, 23):
-  for y in range(0, 23):
-    print format(y + x * 23, '03'),
+#!/usr/bin/python
+
+for x in range(0, 71):
+  for y in range(0, 71):
+    print format(y + x * 71, '04'),
   print ""

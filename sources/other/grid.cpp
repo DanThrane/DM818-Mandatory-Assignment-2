@@ -26,9 +26,11 @@ void validate_grid(int particle_count, const char *const file, int line) {
     int particles_in_system = 0;
     for (int i = 0; i < grid.size(); i++) {
         for (auto particle : grid[i]) {
-            if (get_particle_coordinate(particle) != i) {
+            int realCoordinate = get_particle_coordinate(particle);
+            if (realCoordinate != i) {
                 printf("Assertion fail at %s:%d\n", file, line);
-                assert(get_particle_coordinate(particle) == i);
+                printf("I found a particle in %d which belongs to %d\n", i, realCoordinate);
+                assert(realCoordinate == i);
             }
         }
         particles_in_system += grid[i].size();
@@ -38,6 +40,18 @@ void validate_grid(int particle_count, const char *const file, int line) {
             printf("Assertion fail at %s:%d\n", file, line);
             assert(particles_in_system == particle_count);
         }
+    }
+}
+
+void validate_particles_within_sub_grid(int startInclusive, int endExclusive) {
+    assert(startInclusive >= 0);
+    assert(endExclusive < gridColumns * gridColumns);
+
+    for (int i = 0; i < startInclusive; i++) {
+        assert(grid[i].empty());
+    }
+    for (int i = endExclusive; i < gridColumns * gridColumns; i++) {
+        assert(grid[i].empty());
     }
 }
 
