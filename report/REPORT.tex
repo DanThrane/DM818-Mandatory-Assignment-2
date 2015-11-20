@@ -114,42 +114,52 @@ This reports documents the second mandatory assignment for the course DM818 Para
 
 \begin{enumerate}
 \item Change the implementation such that it runs in $O(n)$ time.
-\item Parallelize the changed code using MPI.
+\item Parallelize the changed code using OpenMP/pThreads/MPI.
 \end{enumerate}
 
-In order to measure proper performance gain, we need to optimise the serial algorithm first, and then parallelize that such that the comparison stays fair.
+In order to measure proper performance gain, we need to optimise the serial algorithm first, and then parallelize it such that the comparison stays fair. It would be easy to show a massive performance gain if the algorithm for the parallel implementation is vastly superior to the one used for linear.
  
 \section{Work Load}
 %A statement of who contributed with what.
-The distribution of the workload has been equal, and pair programming in the imada terminal room have been the preferred method.
+The distribution of the workload has been equal, and pair programming in the imada terminal room have been the preferred method throughout this project.
 
 \chapter{Making the implementation linear}
 %A plot in log-log scale that shows that your serial and parallel codes run in O(n) time and a description of the data structures that you used to achieve it.
 \section{The supplied algorithm}
-The given algorithm for the serial implementation (and the parallel versions) are as follows, clearly showcasing the $n^{2}$ runtime. This was unacceptable and thus a new algorithm has been developed.
+The given algorithm for the serial implementation (and the parallel versions) are as follows, clearly running in $O(n^{2})$ runtime. This was unacceptable and thus a new algorithm has been developed.
 
 \begin{verbatim}
 for( int i = 0; i < n; i++ )
 {
 	particles[i].ax = particles[i].ay = 0;
 	for (int j = 0; j < n; j++ )
-    apply_force( particles[i], particles[j] );
+	{
+    	apply_force( particles[i], particles[j] );
+    }
 }
 \end{verbatim}
 
-The code above shows the culprit, when applying force to all particles, each time all particles are iterated again to do so.
+The code above shows the culprit, when applying force to all particles, for each particle, all particles are iterated again to do so. Since a particle can only be influenced by nearby particles, this is extreme expensive.
 
 \section{The new algorithm}
 The range for interaction for the particles was reduced to a smaller value, denoted as the "cutoff" value. This cutoff value was showcased as a grey border on a particle in the assignment.
 
-Having a reduced area of interaction, allows us to reduced the amount of particles influencing the amount of force needed to be applied to a given particle, thus we can reduce the second for-loop greatly.
+\begin{figure}[H]
+  \centering
+  \begin{minipage}[b]{0.4\textwidth}
+    \includegraphics[width=\textwidth]{cutoff.png}
+    \caption{Snapshot of the GIF from the assignment showcasing the influence ring.}
+  \end{minipage}
+\end{figure}
 
-In order to reduce the loop it is necessary to know which particles are within (or atleast close by) the particle we want to apply the force. To do this we needed to develop a data structure to keep track of where the particles are positioned.
+Having a reduced area of interaction, allows us to reduce the amount of particles influencing the amount of force needed to be applied to a given particle, thus we can reduce the second for-loop greatly.
+
+In order to reduce the loop it is necessary to know which particles are within (or atleast close by) the particle we want to apply the force. To do this we needed to develop a data structure, to keep track of where the particles are positioned.
 
 This data structure was not needed in the original solution since all particles were simply assumed to be within the cutoff range.
 
 \section{The data structure}
-In order to track the location of the particles, the coordinate system is divided into an grid, each coordinate holding all particles within a single cutoff range. It is then possible for a single particle, at a grid position, to find all particles in the surrounding grid positions, guaranteeing to find atleast all particles within its cutoff range.
+In order to track the location of the particles, the coordinate system is divided into a grid, each coordinate holding all particles within a single cutoff range. It is then possible for a single particle, at a grid position, to find all particles in the surrounding grid positions, guaranteeing to find \emph{atleast} all particles within its cutoff range.
 
 \begin{figure}[H]
   \centering
@@ -163,8 +173,7 @@ In order to track the location of the particles, the coordinate system is divide
   \end{minipage}
 \end{figure}
 
-This algortihm will include more particles than needed, but an upper bound for how many particles that can be within the 9 grid positions would still be far from $n$.
-% TODO: Should probably see if this can be shown.
+Initially all particles are added to the data structure. It then has to be maintained whenever we move a particle, as the grid location could possibly change as the particle moves around.
 
 \section{The implementation}
 The implementation uses a separate file named \verb!grid.cpp! and \verb!grid.h!. These files holds the data structure and a series of helper methods that allows us to add, get and remove particles to the grid.
@@ -175,11 +184,26 @@ The grid itself is 	a vector of vectors with particles.
 std::vector<std::vector<particle_t *> > grid;
 \end{verbatim}
 
-The coordinate positions consists of doubles, while the grid positions are mapped to integers. To overcome this the coordinate positions are simply converted using the following formulae, which simply moves the decimal two places to the right and casting to int:
+The coordinate positions consists of doubles, while the grid positions are mapped to integers. To overcome this the coordinate positions are simply converted using the following formulae, which simply moves the decimal two places to the right and casting to an integer. Thereby giving us a consistent mapping of doubles to integers:
 
 \begin{align*}
 \frac{\text{double value}}{0.01}
 \end{align*}
+
+Whenever we move a particle, we simply remove the particle from the grid completely, and then add it back in. This way the old position is removed, and the new position is calculated from the particles new position when added again. \\
+This method assumes the particle always switches position in the grid, it could be calculated whether this actually is the case, but this was not done. Consequence to this method is that some unnecessary calculations might be performed whenever a particle do not move, since it would be removed and added back to the same grid position. The correctness of the algorithm is however not affected.
+
+\section{The graphs}
+Below is a graph plotted for different times (see appendix A) showcasing how the $O(n^{2})$ and $O(n)$ algorithms do versus each other. It is easy to see that the $O(n)$ is indeed linear. Note that bigger sizes did not terminate in reasonable time for the $O(n^{2})$ algorithm.
+
+\begin{figure}[H]
+  \centering
+  \begin{minipage}[b]{0.9\textwidth}
+    \includegraphics[width=\textwidth]{graph_regular.png}
+    \caption{The original $O(n^{2})$ algorithm (blue) versus the new $O(n)$ algorithm (red).}
+  \end{minipage}
+\end{figure}
+
 
 \chapter{Making the implementation parallel}
 %A description of the synchronization you used in the shared memory implementation.
@@ -199,9 +223,17 @@ The coordinate positions consists of doubles, while the grid positions are mappe
 %-----------------------------------------------------------------
 %						     APPENDIX
 %-----------------------------------------------------------------
-%\newpage
-%\newgeometry{left=2.5cm,right=2.5cm}
-%\chapter{Appendix}
-%\section{Source code}
+\newpage
+\newgeometry{left=2.5cm,right=2.5cm}
+\chapter{Appendix}
+\section{Serial algorithm plotting data}
+
+\begin{figure}[H]
+  \centering
+  \begin{minipage}[b]{0.9\textwidth}
+    \includegraphics[width=\textwidth]{plotdata.png}
+    \caption{Plotting data for the linear runtimes.}
+  \end{minipage}
+\end{figure}
 
 \end{document}
