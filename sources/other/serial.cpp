@@ -49,6 +49,7 @@ std::vector<particle_t *> find_all_colliding_particles(int n, particle_t *partic
     }
     return result;
 }
+int maxRows = 0;
 
 int runSerialWithParticles(FILE *fsave, int n, particle_t *particles) {
     // new additions for linear runstime
@@ -103,9 +104,17 @@ int runSerialWithParticles(FILE *fsave, int n, particle_t *particles) {
         //  move particles
         //  and update their position in the grid
         for (int i = 0; i < n; i++) {
+            int coordinate = get_particle_coordinate(&particles[i]);
             grid_remove(&particles[i]);
             move(particles[i]);
             grid_add(&particles[i]);
+            int newCoordinate = get_particle_coordinate(&particles[i]);
+            if (abs(coordinate - newCoordinate) > gridColumns) {
+                int i1 = abs(coordinate - newCoordinate) / gridColumns;
+//                printf("Moved %d cells (From %d to %d [%d rows])\n", abs(coordinate - newCoordinate), coordinate,
+//                       newCoordinate, i1);
+                if (i1 > maxRows) maxRows = i1;
+            }
         }
 
         //  save if necessary
@@ -119,6 +128,7 @@ int runSerialWithParticles(FILE *fsave, int n, particle_t *particles) {
     free(particles);
     if (fsave)
         fclose(fsave);
+    printf("Max rows: %d\n", maxRows);
 
     return 0;
 }

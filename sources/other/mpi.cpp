@@ -67,50 +67,11 @@ GhostZone borrowedLower;
 std::vector<particle_t> insertionsIntoUpperBorrowed;
 std::vector<particle_t> insertionsIntoLowerBorrowed;
 
-void performSanityCheckOnParticle(particle_t &particle, const char *file, const int line) {
-    bool assert1 = fabs(particle.ax) <= 1;
-    if (!assert1) {
-        printf("Assertion failed at %s:%d\n", file, line);
-        printf("Particle1 after: p.x=%f, p.y=%f, p.ax=%f, p.ay=%f, p.vx=%f, p.vy=%f\n",
-               shitParticle1.x, shitParticle1.y, shitParticle1.ax, shitParticle1.ay,
-               shitParticle1.vx, shitParticle1.vy);
-        printf("Particle1 after: p.x=%f, p.y=%f, p.ax=%f, p.ay=%f, p.vx=%f, p.vy=%f\n",
-               shitParticle2.x, shitParticle2.y, shitParticle2.ax, shitParticle2.ay,
-               shitParticle2.vx, shitParticle2.vy);
-        assert(fabs(particle.ax) <= 1);
-    }
-    bool assert2 = fabs(particle.ay) <= 1;
-    if (!assert2) {
-        printf("Assertion failed at %s:%d\n", file, line);
-        printf("Particle1 after: p.x=%f, p.y=%f, p.ax=%f, p.ay=%f, p.vx=%f, p.vy=%f\n",
-               shitParticle1.x, shitParticle1.y, shitParticle1.ax, shitParticle1.ay,
-               shitParticle1.vx, shitParticle1.vy);
-        printf("Particle1 after: p.x=%f, p.y=%f, p.ax=%f, p.ay=%f, p.vx=%f, p.vy=%f\n",
-               shitParticle2.x, shitParticle2.y, shitParticle2.ax, shitParticle2.ay,
-               shitParticle2.vx, shitParticle2.vy);
-        assert(fabs(particle.ay) <= 1);
-    }
-    bool assert3 = fabs(particle.vx) <= 1;
-    if (!assert3) {
-        printf("Assertion failed at %s:%d\n", file, line);
-        printf("Particle1 after: p.x=%f, p.y=%f, p.ax=%f, p.ay=%f, p.vx=%f, p.vy=%f\n",
-               shitParticle1.x, shitParticle1.y, shitParticle1.ax, shitParticle1.ay,
-               shitParticle1.vx, shitParticle1.vy);
-        printf("Particle1 after: p.x=%f, p.y=%f, p.ax=%f, p.ay=%f, p.vx=%f, p.vy=%f\n",
-               shitParticle2.x, shitParticle2.y, shitParticle2.ax, shitParticle2.ay,
-               shitParticle2.vx, shitParticle2.vy);
-        assert(fabs(particle.vx) <= 1);
-    }
-    bool assert4 = fabs(particle.vy) <= 1;
-    if (!assert4) {
-        printf("Assertion failed at %s:%d\n", file, line);
-        printf("Particle1 after: p.x=%f, p.y=%f, p.ax=%f, p.ay=%f, p.vx=%f, p.vy=%f\n",
-               shitParticle1.x, shitParticle1.y, shitParticle1.ax, shitParticle1.ay,
-               shitParticle1.vx, shitParticle1.vy);
-        printf("Particle1 after: p.x=%f, p.y=%f, p.ax=%f, p.ay=%f, p.vx=%f, p.vy=%f\n",
-               shitParticle2.x, shitParticle2.y, shitParticle2.ax, shitParticle2.ay,
-               shitParticle2.vx, shitParticle2.vy);
-        assert(fabs(particle.vy) <= 1);
+void validateNumberOfParticles() {
+    int count;
+    MPI_Reduce(&maxPosition, &count, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
+    if (rank == 0) {
+        CASSERT(count == globalParticleCount, "Expected %d particles, but only found %d", globalParticleCount, count);
     }
 }
 
@@ -304,6 +265,8 @@ int main(int argc, char **argv) {
     initSystem();
     WHEN_DEBUGGING(validate_grid(0, __FILE__, __LINE__));
 
+//    if (rank == 0) wait_for_debugger();
+
     //  simulate a number of time steps
     double simulation_time = read_timer();
     for (int step = 0; step < NSTEPS; step++) {
@@ -312,6 +275,7 @@ int main(int argc, char **argv) {
         WHEN_DEBUGGING(validate_grid(0, __FILE__, __LINE__));
         exchangeInformationWithNeighborHood();
         WHEN_DEBUGGING(validate_grid(0, __FILE__, __LINE__));
+        WHEN_DEBUGGING(validateNumberOfParticles());
 
         for (int i = 0; i < gridColumns * gridColumns; i++) {
             if (i < borrowedLower.coordinateStart || i > borrowedUpper.coordinateStart + gridColumns) {
@@ -323,7 +287,6 @@ int main(int argc, char **argv) {
 
         //  compute forces
         for (int i = 0; i < maxPosition; i++) {
-            WHEN_DEBUGGING(performSanityCheckOnParticle(ownedParticles[i], __FILE__, __LINE__));
             ownedParticles[i].ax = ownedParticles[i].ay = 0;
 
             // traverse included neighbors
@@ -333,17 +296,14 @@ int main(int argc, char **argv) {
                             grid_get_collisions_at_neighbor(&ownedParticles[i], offsetX, offsetY);
 
                     for (auto particle : cell) {
-                        WHEN_DEBUGGING(performSanityCheckOnParticle(*particle, __FILE__, __LINE__));
-                        WHEN_DEBUGGING(performSanityCheckOnParticle(ownedParticles[i], __FILE__, __LINE__));
+                        if (&ownedParticles[i] == particle) continue; //This will do very bad things otherwise!!!
                         memcpy(&shitParticle1, particle, sizeof(particle_t));
                         memcpy(&shitParticle2, &ownedParticles[i], sizeof(particle_t));
 
                         apply_force(ownedParticles[i], *particle);
-                        WHEN_DEBUGGING(performSanityCheckOnParticle(ownedParticles[i], __FILE__, __LINE__));
                     }
                 }
             }
-            WHEN_DEBUGGING(performSanityCheckOnParticle(ownedParticles[i], __FILE__, __LINE__));
         }
 
         // Move and update particles

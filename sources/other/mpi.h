@@ -34,16 +34,16 @@ typedef struct {
         assert(coordinate >= zone.coordinateStart && coordinate < zone.coordinateStart + gridColumns);\
     }\
 }
+#define WHEN_DEBUGGING(expr) expr
+#define CASSERT(expr, message, ...) if (!(expr)) {\
+    printf("[%d] Assertion failed at %s:%d. Message: " message "\n", rank, __FILE__, __LINE__, __VA_ARGS__);\
+    assert(expr);\
+}
 #endif
 #ifndef DEBUG
 #define VALIDATE_GHOST_ZONE(zone)
-#endif
-
-#ifdef DEBUG
-#define WHEN_DEBUGGING(expr) expr
-#endif
-#ifndef DEBUG
 #define WHEN_DEBUGGING(expr)
+#define CASSERT(expr, message, ...)
 #endif
 
 #endif //DM818_SERIAL_MPI_H

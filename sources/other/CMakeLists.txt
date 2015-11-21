@@ -26,4 +26,4 @@ if(MPI_LINK_FLAGS)
     set_target_properties(mpi PROPERTIES LINK_FLAGS "${MPI_LINK_FLAGS}")
 endif()
 
-#target_compile_definitions(mpi PRIVATE DEBUG)
+target_compile_definitions(mpi PRIVATE DEBUG)
