@@ -25,4 +25,4 @@ void grid_reset();
 
 void grid_purge(int startInclusive, int endExclusive);
 
-void validate_particles_within_sub_grid(int startInclusive, int endExclusive);
+void validate_particles_within_sub_grid(int startInclusive, int endInclusive);

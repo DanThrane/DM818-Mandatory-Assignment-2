@@ -313,7 +313,7 @@ int main(int argc, char **argv) {
             int max = borrowedUpper.coordinateStart + gridColumns;
 
             if (min < 0) min = cellsPerProcess * rank;
-            if (max >= gridColumns * gridColumns) max = (gridColumns * gridColumns) - 1;
+            if (max >= gridColumns * gridColumns) max = (gridColumns * gridColumns);
 
             validate_particles_within_sub_grid(min, max);
 

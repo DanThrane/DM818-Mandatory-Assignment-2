@@ -43,15 +43,17 @@ void validate_grid(int particle_count, const char *const file, int line) {
     }
 }
 
-void validate_particles_within_sub_grid(int startInclusive, int endExclusive) {
+void validate_particles_within_sub_grid(int startInclusive, int endInclusive) {
     assert(startInclusive >= 0);
-    assert(endExclusive < gridColumns * gridColumns);
+    assert(endInclusive <= gridColumns * gridColumns);
 
     for (int i = 0; i < startInclusive; i++) {
-        assert(grid[i].empty());
+        CASSERT(grid[i].empty(), "Expected cell %d to be empty. We're only expecting particles in %d to %d", i,
+                startInclusive, endInclusive);
     }
-    for (int i = endExclusive; i < gridColumns * gridColumns; i++) {
-        assert(grid[i].empty());
+    for (int i = endInclusive + 1; i < gridColumns * gridColumns; i++) {
+        CASSERT(grid[i].empty(), "Expected cell %d to be empty. We're only expecting particles in %d to %d", i,
+                startInclusive, endInclusive);
     }
 }
 
