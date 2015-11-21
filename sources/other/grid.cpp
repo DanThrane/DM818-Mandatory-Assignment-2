@@ -111,5 +111,5 @@ std::vector<particle_t *> grid_get_collisions_at_neighbor(particle_t *particle, 
         return std::vector<particle_t *>();
     }
 
-    return grid[coordinate + (offsetY * 23) + offsetX];
+    return grid[coordinate + (offsetY * gridColumns) + offsetX];
 }
