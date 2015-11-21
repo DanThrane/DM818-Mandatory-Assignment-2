@@ -25,6 +25,7 @@
 \usepackage{lastpage}
 \usepackage{fancyhdr}
 \usepackage{etoolbox}
+\usepackage[]{algorithm2e}
 %Following overwrites the page style for chapters
 \patchcmd{\chapter}{\thispagestyle{plain}}{\thispagestyle{ruledChapter}}{}{}
 
@@ -206,16 +207,59 @@ Below is a graph plotted for different times (see appendix A) showcasing how the
 
 
 \chapter{Making the implementation parallel}
-%A description of the synchronization you used in the shared memory implementation.
-%A description of the communication you used in the distributed memory implementation.
-%A description of the design choices that you tried and how did they affect the performance.
+After having an optimal $O(n)$ running time for the serial implementation, the parallel algorithm can be developed. For this the MPI library was used.
 
+\section{The algorithm}
+% How was the linear algorithm modified to make it parallel.
+In the parallel versions given in the assignment, each process is given and equal number of particles, and each process would then take its given particles and apply force to these against \emph{all} particles.
+
+
+\IncMargin{1em}
+\begin{algorithm}
+\SetKwData{Left}{left}\SetKwData{This}{this}\SetKwData{Up}{up}
+\SetKwFunction{Union}{Union}\SetKwFunction{FindCompress}{FindCompress}
+\SetKwInOut{Input}{input}\SetKwInOut{Output}{output}
+\Input{Local particles, All particles.}
+\Output{Applied force to local particles.}
+\BlankLine
+\For{local particles i}{
+\For{all particles j}{\label{forins}
+apply force to i using j\;
+}
+}
+\caption{Work each process does to particles.}\label{algo_disjdecomp}
+\end{algorithm}\DecMargin{1em}
+
+This will not work as it runs in $O(n^{2})$ and instead we need to use our grid implementation. This grid implementation will not be able to copy this approach as we need to know which particles are close to, or within the cutoff range.
+
+The approach used here consists of splitting the grid evenly between processes, and then perform force to particles within each processes' own grid.
+
+\subsection{Design choices}
+%A description of the design choices that you tried and how did they affect the performance.
+We wanted to reduce the overhead from communication as much as possibly, such that the idle time is as small as possible. In order to do this code complexity is compromised in that a lot of additional calculations have to be done, such that instead of communicating small bits of data often, each process instead calculates it instead.
+
+\subsubsection{Ghost zones}
+
+
+\subsubsection{Load balancing}
+A situation may arise where all particles would cluster in one end of the grid, thus some processes would have a lot of work while some may have none. Load balancing would then divide the work from heavy loaded processes to those who have little work to do.
+
+This is not handled in the implementation as it would add severe code complexity.
+
+\section{The synchronization methods}
+%A description of the synchronization you used in the shared memory implementation.
+When processes need to communicate they often have to make sure they all are at the same instruction in the code. Therefore it is necessary to use different methods  to ensure that all processes are ready to exchange data.
+
+\section{The communication}
+%A description of the communication you used in the distributed memory implementation.
+Communication arises between processes when a particle switches between grid borders between two processes.
+
+\section{The graphs}
 %Speedup plots that show how closely your parallel codes approach the idealized p-times speedup and a discussion on whether it is possible to do better.
 %Where does the time go? Consider breaking down the runtime into computation time, synchronization time and/or communication time. How do they scale with p?
 
 \chapter{Discussion on pthreads, OpenMP, and MPI}
 %A discussion on using pthreads, OpenMP and MPI for this assignment.
-
 
 \chapter{Conclusion}
 
