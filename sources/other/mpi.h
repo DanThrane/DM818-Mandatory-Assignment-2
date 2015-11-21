@@ -26,6 +26,13 @@ typedef struct {
     int coordinateStart;
 } GhostZone;
 
+typedef struct {
+    int id;
+    int step;
+    double x;
+    double y;
+} SavedParticle;
+
 #ifdef DEBUG
 #define VALIDATE_GHOST_ZONE(zone) {\
     assert(zone.particleCount >= 0);\

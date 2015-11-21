@@ -3,6 +3,7 @@
 #include <math.h>
 #include <assert.h>
 #include <sstream>
+#include <algorithm>
 
 #include "grid.h"
 #include "mpi.h"
@@ -17,7 +18,7 @@ particle_t shitParticle2;
 /**
  * Output stream (for particle locations)
  */
-std::ostringstream localOutput;
+std::vector<SavedParticle> savedParticles;
 
 /**
  * The number of cells for each process
@@ -38,6 +39,8 @@ int maxRank;
  * The particle data type used by MPI
  */
 MPI_Datatype particleType;
+
+MPI_Datatype savedParticleType;
 
 /**
  * The amount of particles that exist in the entire system
@@ -66,6 +69,10 @@ GhostZone borrowedLower;
 
 std::vector<particle_t> insertionsIntoUpperBorrowed;
 std::vector<particle_t> insertionsIntoLowerBorrowed;
+
+void initParticleType();
+
+void initSavedParticleType();
 
 void validateNumberOfParticles() {
     int count;
@@ -375,7 +382,12 @@ int main(int argc, char **argv) {
         //  save if necessary
         if (savename && step % SAVEFREQ == 0) {
             for (int i = 0; i < maxPosition; i++) {
-                localOutput << ownedParticles[i].x << " " << ownedParticles[i].y << "\n";
+                SavedParticle save;
+                save.x = ownedParticles[i].x;
+                save.y = ownedParticles[i].y;
+                save.id = ownedParticles[i].id;
+                save.step = step;
+                savedParticles.push_back(save);
             }
         }
         // Communicate to rank 0 with result
@@ -388,10 +400,6 @@ int main(int argc, char **argv) {
 
     if (rank == 0) { printf("n = %d, simulation time = %g seconds\n", globalParticleCount, simulation_time); }
 
-    if (rank == 0 && fsave) {
-        fprintf(fsave, localOutput.str().c_str());
-    }
-
     // TODO Release resources
     if (fsave) {
         fclose(fsave);
@@ -401,14 +409,17 @@ int main(int argc, char **argv) {
     return 0;
 }
 
+bool compareSavedParticle(SavedParticle *a, SavedParticle *b) {
+    return a->id < b->id;
+}
+
 void combineResult(FILE *fsave) {
     int counts[maxRank];
-    char *combinedOutput;
-    int *displacements;
+    SavedParticle *combinedOutput = NULL;
+    int *displacements = NULL;
 
     int count = 0;
-    std::string output = localOutput.str();
-    int outputSize = (int) output.size();
+    int outputSize = (int) savedParticles.size();
 
     MPI_Gather(&outputSize, 1, MPI_INT, counts, 1, MPI_INT, 0, MPI_COMM_WORLD);
 
@@ -418,15 +429,29 @@ void combineResult(FILE *fsave) {
             displacements[i] = count;
             count += counts[i];
         }
-        combinedOutput = (char *) malloc(sizeof(char) * count);
+        combinedOutput = (SavedParticle *) malloc(sizeof(SavedParticle) * count);
     }
-    MPI_Gatherv((void *) output.c_str(), outputSize, MPI_CHAR, combinedOutput, counts, displacements, MPI_CHAR, 0,
-                MPI_COMM_WORLD);
-/*
-    if (rank == 0 && fsave) {
-        fprintf(fsave, combinedOutput);
+    MPI_Gatherv(savedParticles.data(), outputSize, savedParticleType, combinedOutput, counts, displacements,
+                savedParticleType, 0, MPI_COMM_WORLD);
+
+    if (rank == 0) {
+        printf("Collected a total of %d saved particles\n", count);
+        std::vector<SavedParticle *> buffers[NSTEPS];
+        for (int i = 0; i < count; i++) {
+            buffers[combinedOutput[i].step].push_back(&combinedOutput[i]);
+        }
+        for (int i = 0; i < NSTEPS; i++) {
+            std::vector<SavedParticle *> &vector = buffers[i];
+            std::sort(vector.begin(), vector.end(), compareSavedParticle);
+            if (i == 0) {
+                fprintf(fsave, "%d %g\n", globalParticleCount, sqrt(density * globalParticleCount));
+            }
+            for (auto particle : vector) {
+                fprintf(fsave, "%g %g\n", particle->x, particle->y);
+            }
+        }
+        printf("Sorted and saved output file!\n");
     }
-    */
 }
 
 void initSystem() {
@@ -475,7 +500,7 @@ void initSystem() {
     }
 
 #ifdef DEBUG
-    WHEN_DEBUGGING(validateScatter(particlesToSend, ownedParticles, maxPosition));
+    validateScatter(particlesToSend, ownedParticles, maxPosition);
     assert(cellsPerProcess % gridColumns == 0);
     assert(borrowedLower.coordinateStart % gridColumns == 0);
     assert(borrowedUpper.coordinateStart % gridColumns == 0);
@@ -559,7 +584,43 @@ void initMPI(int &argc, char **&argv) {//  set up MPI
     MPI_Init(&argc, &argv);
     MPI_Comm_size(MPI_COMM_WORLD, &maxRank);
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-    MPI_Type_contiguous(6, MPI_DOUBLE, &particleType);
+
+    initParticleType();
+    initSavedParticleType();
+}
+
+void initSavedParticleType() {
+    int count = 4;
+    int blocklens[] = {1, 1, 1, 1};
+
+    MPI_Aint indices[4];
+    indices[0] = (MPI_Aint) offsetof(SavedParticle, id);
+    indices[1] = (MPI_Aint) offsetof(SavedParticle, step);
+    indices[2] = (MPI_Aint) offsetof(SavedParticle, x);
+    indices[3] = (MPI_Aint) offsetof(SavedParticle, y);
+
+    MPI_Datatype old_types[] = {MPI_INT, MPI_INT, MPI_DOUBLE, MPI_DOUBLE};
+
+    MPI_Type_struct(count, blocklens, indices, old_types, &savedParticleType);
+    MPI_Type_commit(&savedParticleType);
+}
+
+void initParticleType() {
+    int count = 7;
+    int blocklens[] = {1, 1, 1, 1, 1, 1, 1};
+
+    MPI_Aint indices[7];
+    indices[0] = (MPI_Aint) offsetof(particle_t, x);
+    indices[1] = (MPI_Aint) offsetof(particle_t, y);
+    indices[2] = (MPI_Aint) offsetof(particle_t, vx);
+    indices[3] = (MPI_Aint) offsetof(particle_t, vy);
+    indices[4] = (MPI_Aint) offsetof(particle_t, ax);
+    indices[5] = (MPI_Aint) offsetof(particle_t, ay);
+    indices[6] = (MPI_Aint) offsetof(particle_t, id);
+
+    MPI_Datatype old_types[] = {MPI_DOUBLE, MPI_DOUBLE, MPI_DOUBLE, MPI_DOUBLE, MPI_DOUBLE, MPI_DOUBLE, MPI_INT};
+
+    MPI_Type_struct(count, blocklens, indices, old_types, &particleType);
     MPI_Type_commit(&particleType);
 }
 
