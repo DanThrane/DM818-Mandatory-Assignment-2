@@ -8,8 +8,8 @@
 
 #define DEFAULT_FILENAME "sample.txt"
 #define eps 0.1
-#define SCALE 200
-#define FPS 15
+#define SCALE 800
+#define FPS 30
 #define MIN_SIZE 100
 
 struct particle_t { float x, y; };
