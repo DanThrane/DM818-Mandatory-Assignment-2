@@ -7,6 +7,9 @@
 #include "grid.h"
 #include "mpi.h"
 
+particle_t shitParticle1;
+particle_t shitParticle2;
+
 //
 // Global state
 //
@@ -63,6 +66,53 @@ GhostZone borrowedLower;
 
 std::vector<particle_t> insertionsIntoUpperBorrowed;
 std::vector<particle_t> insertionsIntoLowerBorrowed;
+
+void performSanityCheckOnParticle(particle_t &particle, const char *file, const int line) {
+    bool assert1 = fabs(particle.ax) <= 1;
+    if (!assert1) {
+        printf("Assertion failed at %s:%d\n", file, line);
+        printf("Particle1 after: p.x=%f, p.y=%f, p.ax=%f, p.ay=%f, p.vx=%f, p.vy=%f\n",
+               shitParticle1.x, shitParticle1.y, shitParticle1.ax, shitParticle1.ay,
+               shitParticle1.vx, shitParticle1.vy);
+        printf("Particle1 after: p.x=%f, p.y=%f, p.ax=%f, p.ay=%f, p.vx=%f, p.vy=%f\n",
+               shitParticle2.x, shitParticle2.y, shitParticle2.ax, shitParticle2.ay,
+               shitParticle2.vx, shitParticle2.vy);
+        assert(fabs(particle.ax) <= 1);
+    }
+    bool assert2 = fabs(particle.ay) <= 1;
+    if (!assert2) {
+        printf("Assertion failed at %s:%d\n", file, line);
+        printf("Particle1 after: p.x=%f, p.y=%f, p.ax=%f, p.ay=%f, p.vx=%f, p.vy=%f\n",
+               shitParticle1.x, shitParticle1.y, shitParticle1.ax, shitParticle1.ay,
+               shitParticle1.vx, shitParticle1.vy);
+        printf("Particle1 after: p.x=%f, p.y=%f, p.ax=%f, p.ay=%f, p.vx=%f, p.vy=%f\n",
+               shitParticle2.x, shitParticle2.y, shitParticle2.ax, shitParticle2.ay,
+               shitParticle2.vx, shitParticle2.vy);
+        assert(fabs(particle.ay) <= 1);
+    }
+    bool assert3 = fabs(particle.vx) <= 1;
+    if (!assert3) {
+        printf("Assertion failed at %s:%d\n", file, line);
+        printf("Particle1 after: p.x=%f, p.y=%f, p.ax=%f, p.ay=%f, p.vx=%f, p.vy=%f\n",
+               shitParticle1.x, shitParticle1.y, shitParticle1.ax, shitParticle1.ay,
+               shitParticle1.vx, shitParticle1.vy);
+        printf("Particle1 after: p.x=%f, p.y=%f, p.ax=%f, p.ay=%f, p.vx=%f, p.vy=%f\n",
+               shitParticle2.x, shitParticle2.y, shitParticle2.ax, shitParticle2.ay,
+               shitParticle2.vx, shitParticle2.vy);
+        assert(fabs(particle.vx) <= 1);
+    }
+    bool assert4 = fabs(particle.vy) <= 1;
+    if (!assert4) {
+        printf("Assertion failed at %s:%d\n", file, line);
+        printf("Particle1 after: p.x=%f, p.y=%f, p.ax=%f, p.ay=%f, p.vx=%f, p.vy=%f\n",
+               shitParticle1.x, shitParticle1.y, shitParticle1.ax, shitParticle1.ay,
+               shitParticle1.vx, shitParticle1.vy);
+        printf("Particle1 after: p.x=%f, p.y=%f, p.ax=%f, p.ay=%f, p.vx=%f, p.vy=%f\n",
+               shitParticle2.x, shitParticle2.y, shitParticle2.ax, shitParticle2.ay,
+               shitParticle2.vx, shitParticle2.vy);
+        assert(fabs(particle.vy) <= 1);
+    }
+}
 
 void prepareGhostZoneForExchange(GhostZone &zone) {
     // Move the particles from the real grid into the buffer
@@ -273,6 +323,7 @@ int main(int argc, char **argv) {
 
         //  compute forces
         for (int i = 0; i < maxPosition; i++) {
+            WHEN_DEBUGGING(performSanityCheckOnParticle(ownedParticles[i], __FILE__, __LINE__));
             ownedParticles[i].ax = ownedParticles[i].ay = 0;
 
             // traverse included neighbors
@@ -282,10 +333,17 @@ int main(int argc, char **argv) {
                             grid_get_collisions_at_neighbor(&ownedParticles[i], offsetX, offsetY);
 
                     for (auto particle : cell) {
+                        WHEN_DEBUGGING(performSanityCheckOnParticle(*particle, __FILE__, __LINE__));
+                        WHEN_DEBUGGING(performSanityCheckOnParticle(ownedParticles[i], __FILE__, __LINE__));
+                        memcpy(&shitParticle1, particle, sizeof(particle_t));
+                        memcpy(&shitParticle2, &ownedParticles[i], sizeof(particle_t));
+
                         apply_force(ownedParticles[i], *particle);
+                        WHEN_DEBUGGING(performSanityCheckOnParticle(ownedParticles[i], __FILE__, __LINE__));
                     }
                 }
             }
+            WHEN_DEBUGGING(performSanityCheckOnParticle(ownedParticles[i], __FILE__, __LINE__));
         }
 
         // Move and update particles
@@ -298,8 +356,13 @@ int main(int argc, char **argv) {
             if (max >= gridColumns * gridColumns) max = (gridColumns * gridColumns) - 1;
 
             validate_particles_within_sub_grid(min, max);
+
+            particle_t debugParticleBefore;
 #endif
             particle_t *particle = &ownedParticles[i];
+#ifdef DEBUG
+            memcpy(&debugParticleBefore, particle, sizeof(particle_t));
+#endif
             int beforeStart = get_particle_coordinate(particle);
             grid_remove(particle);
             move(*particle);
@@ -318,9 +381,21 @@ int main(int argc, char **argv) {
                            coordinate < borrowedUpper.coordinateStart + gridColumns) {
                     insertionsIntoUpperBorrowed.push_back(copy);
                 } else {
+#ifdef DEBUG
+                    WHEN_DEBUGGING(validate_grid(0, __FILE__, __LINE__));
+                    VALIDATE_GHOST_ZONE(borrowedLower);
+                    VALIDATE_GHOST_ZONE(borrowedUpper);
+
                     printf("Coordinate: %d, before: %d, lower: %d upper: %d\n", coordinate, beforeStart,
                            borrowedLower.coordinateStart, borrowedUpper.coordinateStart);
+                    printf("Particle before: p.x=%f, p.y=%f, p.ax=%f, p.ay=%f, p.vx=%f, p.vy=%f\n",
+                           debugParticleBefore.x, debugParticleBefore.y, debugParticleBefore.ax, debugParticleBefore.ay,
+                           debugParticleBefore.vx, debugParticleBefore.vy);
+                    printf("Particle after: p.x=%f, p.y=%f, p.ax=%f, p.ay=%f, p.vx=%f, p.vy=%f\n",
+                           particle->x, particle->y, particle->ax, particle->ay,
+                           particle->vx, particle->vy);
                     assert(false);
+#endif
                 }
 
                 // Take last element and move it in its place
