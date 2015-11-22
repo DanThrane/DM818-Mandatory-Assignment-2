@@ -225,16 +225,16 @@ reasonable time for the $O(n^{2})$ algorithm.
   \end{minipage}
 \end{figure}
 
-\input{mpi_implementation}
-
 \section{Testing}
 % TODO look into that test file.
 
 
+\input{mpi_implementation}
+
 \chapter{Conclusion}
 The serial algorithm for the particle simulation has been made linear by implementing a grid system, which is essential a data-structure used to look up particles at given coordinates. This modification allowed us to only apply force to a given particle with other particles nearby, thus not having to do this for every single existing particle.
 
-The new and improved algorithm has been made parallel using MPI. This introduced some overhead, but still greatly reduced the running time due to several processes running on the data. The implementation is still linear.
+The new and improved algorithm has been made parallel using MPI. This introduced some overhead, but this proved trivial as the input size (of particles) grew larger. Some problems persisted, such as it is not possible to use more processes than there will be rows in the grid. Overhead in the parallelization was accounted for by counting time spent is specific sections of the code. 
 
 %-----------------------------------------------------------------
 %						     APPENDIX
