@@ -1,0 +1,1 @@
+/usr/bin/c++    -std=c++11    CMakeFiles/dm818_base_serial.dir/serial-other/source/serial_base_main.cpp.o CMakeFiles/dm818_base_serial.dir/serial-other/source/common.cpp.o CMakeFiles/dm818_base_serial.dir/serial-other/source/grid.cpp.o CMakeFiles/dm818_base_serial.dir/serial-other/source/serial_base.cpp.o  -o dm818_base_serial -rdynamic 

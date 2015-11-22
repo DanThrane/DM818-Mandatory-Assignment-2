@@ -1,0 +1,4 @@
+/home/latho12/git/DM818-Mandatory-Assignment-2/CMakeFiles/dm818_base_serial.dir
+/home/latho12/git/DM818-Mandatory-Assignment-2/CMakeFiles/dm818_serial.dir
+/home/latho12/git/DM818-Mandatory-Assignment-2/CMakeFiles/dm818_test.dir
+/home/latho12/git/DM818-Mandatory-Assignment-2/CMakeFiles/mpi.dir

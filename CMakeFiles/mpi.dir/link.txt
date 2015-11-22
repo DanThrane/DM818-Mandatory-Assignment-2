@@ -1,0 +1,1 @@
+/usr/bin/c++    -std=c++11    CMakeFiles/mpi.dir/mpi-other/source/mpi.cpp.o CMakeFiles/mpi.dir/mpi-other/source/common.cpp.o CMakeFiles/mpi.dir/mpi-other/source/grid.cpp.o  -o mpi -rdynamic -lmpi_cxx -lmpi -ldl -lhwloc 
