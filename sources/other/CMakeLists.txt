@@ -24,4 +24,4 @@ if(MPI_LINK_FLAGS)
 endif()
 
 #target_compile_definitions(mpi PRIVATE DEBUG)
-target_compile_definitions(dm818_serial PRIVATE DEBUG)
+#target_compile_definitions(dm818_serial PRIVATE DEBUG)

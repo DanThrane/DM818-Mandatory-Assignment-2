@@ -3,10 +3,16 @@
 #include <math.h>
 #include <algorithm>
 #include <assert.h>
+#include <unordered_map>
+#include <ostream>
+#include <iostream>
 
 #include "common.h"
 #include "grid.h"
 #include "serial.h"
+
+// Used to account for time spent
+std::unordered_map<std::string, double> profiling;
 
 // benchmarking program
 // note: i don't expect this to compile.
@@ -53,20 +59,23 @@ int maxRows = 0;
 
 int runSerialWithParticles(FILE *fsave, int n, particle_t *particles) {
     // new additions for linear runstime
-    grid_init(sqrt(0.0005 * n) / 0.01);
+    BEGIN_TIMED_ZONE(initSystem);
+    gridInit(sqrt(0.0005 * n) / 0.01);
     for (int i = 0; i < n; ++i) {
-        grid_add(&particles[i]);
+        gridAdd(&particles[i]);
     }
+    END_TIMED_ZONE(initSystem);
 
     //  simulate a number of time steps
     double simulation_time = read_timer();
     for (int step = 0; step < NSTEPS; step++) {
 #ifdef DEBUG
-        validate_grid(n, __FILE__, __LINE__);
+        gridValidate(n, __FILE__, __LINE__);
 #endif
-        printf("NSTEP = %i\n", step);
+        //printf("NSTEP = %i\n", step);
 
         //  compute forces
+        BEGIN_TIMED_ZONE(applyForce);
         for (int i = 0; i < n; i++) {
             particles[i].ax = particles[i].ay = 0;
 
@@ -74,10 +83,11 @@ int runSerialWithParticles(FILE *fsave, int n, particle_t *particles) {
 #ifdef DEBUG
             std::vector<particle_t *> all_particles_visited;
 #endif
+
             for (int offsetX = -1; offsetX <= 1; offsetX++) {
                 for (int offsetY = -1; offsetY <= 1; offsetY++) {
                     const std::vector<particle_t *> &cell =
-                            grid_get_collisions_at_neighbor(&particles[i], offsetX, offsetY);
+                            gridGetCollisionsAtNeighbor(&particles[i], offsetX, offsetY);
 
                     for (auto particle : cell) {
                         apply_force(particles[i], *particle);
@@ -100,15 +110,17 @@ int runSerialWithParticles(FILE *fsave, int n, particle_t *particles) {
             }
 #endif
         }
+        END_TIMED_ZONE(applyForce);
 
         //  move particles
         //  and update their position in the grid
+        BEGIN_TIMED_ZONE(moveParticles);
         for (int i = 0; i < n; i++) {
-            int coordinate = get_particle_coordinate(&particles[i]);
-            grid_remove(&particles[i]);
+            int coordinate = gridGetParticleCoordinate(&particles[i]);
+            gridRemove(&particles[i]);
             move(particles[i]);
-            grid_add(&particles[i]);
-            int newCoordinate = get_particle_coordinate(&particles[i]);
+            gridAdd(&particles[i]);
+            int newCoordinate = gridGetParticleCoordinate(&particles[i]);
             if (abs(coordinate - newCoordinate) > gridColumns) {
                 int i1 = abs(coordinate - newCoordinate) / gridColumns;
 //                printf("Moved %d cells (From %d to %d [%d rows])\n", abs(coordinate - newCoordinate), coordinate,
@@ -116,14 +128,24 @@ int runSerialWithParticles(FILE *fsave, int n, particle_t *particles) {
                 if (i1 > maxRows) maxRows = i1;
             }
         }
+        END_TIMED_ZONE(moveParticles);
 
         //  save if necessary
-        if (fsave && (step % SAVEFREQ) == 0)
+        if (fsave && (step % SAVEFREQ) == 0) {
+            BEGIN_TIMED_ZONE(saveLocalResult);
             save(fsave, n, particles);
+            END_TIMED_ZONE(saveLocalResult);
+        }
     }
     simulation_time = read_timer() - simulation_time;
 
     printf("n = %d, simulation time = %g seconds\n", n, simulation_time);
+    double totalTime = 0;
+    for (auto stat : profiling) {
+        std::cout << stat.first << ":" << stat.second << std::endl;
+        totalTime += stat.second;
+    }
+    printf("Total time: %f\n", totalTime);
 
     free(particles);
     if (fsave)
