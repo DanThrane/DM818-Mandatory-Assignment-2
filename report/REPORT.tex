@@ -212,15 +212,29 @@ reasonable time for the $O(n^{2})$ algorithm.
 \begin{figure}[H]
   \centering
   \begin{minipage}[b]{0.9\textwidth}
-    \includegraphics[width=\textwidth]{graph_regular.png}
+    \includegraphics[width=\textwidth]{graph_log.png}
     \caption{The original $O(n^{2})$ algorithm (blue) versus the new $O(n)$ algorithm (red).}
+  \end{minipage}
+\end{figure}
+
+\begin{figure}[H]
+  \centering
+  \begin{minipage}[b]{0.9\textwidth}
+    \includegraphics[width=\textwidth]{graph_regular.png}
+    \caption{Same as above, but not using logarithmic axis.}
   \end{minipage}
 \end{figure}
 
 \input{mpi_implementation}
 
-\chapter{Conclusion}
+\section{Testing}
+% TODO look into that test file.
 
+
+\chapter{Conclusion}
+The serial algorithm for the particle simulation has been made linear by implementing a grid system, which is essential a data-structure used to look up particles at given coordinates. This modification allowed us to only apply force to a given particle with other particles nearby, thus not having to do this for every single existing particle.
+
+The new and improved algorithm has been made parallel using MPI. This introduced some overhead, but still greatly reduced the running time due to several processes running on the data. The implementation is still linear.
 
 %-----------------------------------------------------------------
 %						     APPENDIX

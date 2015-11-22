@@ -1,0 +1,90 @@
+Grid size: 5041
+Grid size: 5041
+Grid size: 5041
+Grid size: 5041
+n = 1000, simulation time = 2.4648 seconds
+moveParticles:0.000181
+informationExchange:2.2e-05
+purgeGrid:6e-06
+messagePrep:0.000118
+synchronization:1.2e-05
+applyForce:0.001451
+worldUpdate:2e-06
+initSystem:0.010652
+mpiInit:1.02501
+Total time: 1.037456
+Grid size: 10201
+Grid size: 10201
+Grid size: 10201
+Grid size: 10201
+n = 2000, simulation time = 3.97535 seconds
+moveParticles:0.000369
+informationExchange:6.6e-05
+purgeGrid:1.2e-05
+messagePrep:0.000156
+synchronization:0.000105
+applyForce:0.004467
+worldUpdate:4.9e-05
+initSystem:0.019517
+mpiInit:1.02874
+Total time: 1.053481
+Grid size: 15129
+Grid size: 15129
+Grid size: 15129
+Grid size: 15129
+n = 3000, simulation time = 5.21684 seconds
+moveParticles:0.00051
+informationExchange:5.1e-05
+purgeGrid:1.2e-05
+messagePrep:0.000184
+synchronization:1.5e-05
+applyForce:0.005004
+worldUpdate:3e-06
+initSystem:0.024555
+mpiInit:1.03008
+Total time: 1.060410
+Grid size: 25281
+Grid size: 25281
+Grid size: 25281
+Grid size: 25281
+n = 5000, simulation time = 7.85452 seconds
+moveParticles:0.001111
+informationExchange:6e-05
+purgeGrid:1.7e-05
+messagePrep:0.000283
+synchronization:1.9e-05
+applyForce:0.010032
+worldUpdate:3e-06
+initSystem:0.045302
+mpiInit:1.03165
+Total time: 1.088476
+Grid size: 37636
+Grid size: 37636
+Grid size: 37636
+Grid size: 37636
+n = 7500, simulation time = 11.0555 seconds
+moveParticles:0.001111
+informationExchange:2.6e-05
+purgeGrid:1e-05
+messagePrep:0.000167
+synchronization:1.1e-05
+applyForce:0.007614
+worldUpdate:1e-06
+initSystem:0.036527
+mpiInit:1.02988
+Total time: 1.075350
+Grid size: 50176
+Grid size: 50176
+Grid size: 50176
+Grid size: 50176
+n = 10000, simulation time = 14.4308 seconds
+moveParticles:0.001618
+informationExchange:2.9e-05
+purgeGrid:1.7e-05
+messagePrep:0.000281
+synchronization:1.6e-05
+applyForce:0.014875
+worldUpdate:3e-06
+initSystem:0.08435
+mpiInit:1.03411
+Total time: 1.135294

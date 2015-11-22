@@ -115,13 +115,46 @@ can effectively use with the system. The current implementation allows for at mo
 And when hitting this case, we won't be very effective, since we will hold twice as many borrowed cells, that we hold
 owned cells. The system could allow for more processors by letting the zones be smaller squares, that do not need to
 have the same width as the entire grid. This does however come at the cost of having up to four neighbors instead of at
-most two.
+most two and the increase complexity in communicating.
 
 \section{Performance}
+This section is used to document two aspects:
+
 \begin{enumerate}
   \item Overall performance 
   \item Breakdown of time used in a single run
 \end{enumerate}
+
+Like previously, in order to confirm that the implementation is still linear, we can plot the time against the input size
+and visually see the result.
+
+\begin{figure}[H]
+  \centering
+  \begin{minipage}[b]{0.9\textwidth}
+    \includegraphics[width=\textwidth]{mpi_log.png}
+    \caption{Runtimes for the MPI implementation using 4 processes.}
+  \end{minipage}
+\end{figure}
+
+\begin{figure}[H]
+  \centering
+  \begin{minipage}[b]{0.9\textwidth}
+    \includegraphics[width=\textwidth]{serialvsparallel.png}
+    \caption{Serial runtime against the parallel runtime.}
+  \end{minipage}
+\end{figure}
+
+As seen in the second graph, the overhead from the parallel implementation almost negates the performance gain, but as the particle size increases, this constant overhead will have less of an impact. This makes it interesting looking at just how much overhead is present.
+
+To find out how much overhead the parallel implementation has, we have inserted a series of ``times zones'' which accumulate the time the root process spends in a given section of the code. Using this we are able to account for exactly how much time has been spent calculating additional work.
+
+\begin{figure}[H]
+  \centering
+  \begin{minipage}[b]{0.6\textwidth}
+    \includegraphics[width=\textwidth]{time.png}
+    \caption{Time spent calculating.}
+  \end{minipage}
+\end{figure}
 
 \section{Testing}
 \begin{enumerate}
