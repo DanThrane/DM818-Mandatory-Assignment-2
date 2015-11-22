@@ -59,10 +59,12 @@ int maxRows = 0;
 
 int runSerialWithParticles(FILE *fsave, int n, particle_t *particles) {
     // new additions for linear runstime
+    BEGIN_TIMED_ZONE(initSystem);
     gridInit(sqrt(0.0005 * n) / 0.01);
     for (int i = 0; i < n; ++i) {
         gridAdd(&particles[i]);
     }
+    END_TIMED_ZONE(initSystem);
 
     //  simulate a number of time steps
     double simulation_time = read_timer();
@@ -73,6 +75,7 @@ int runSerialWithParticles(FILE *fsave, int n, particle_t *particles) {
         //printf("NSTEP = %i\n", step);
 
         //  compute forces
+        BEGIN_TIMED_ZONE(applyForce);
         for (int i = 0; i < n; i++) {
             particles[i].ax = particles[i].ay = 0;
 
@@ -80,7 +83,7 @@ int runSerialWithParticles(FILE *fsave, int n, particle_t *particles) {
 #ifdef DEBUG
             std::vector<particle_t *> all_particles_visited;
 #endif
-            BEGIN_TIMED_ZONE(applyForce);
+
             for (int offsetX = -1; offsetX <= 1; offsetX++) {
                 for (int offsetY = -1; offsetY <= 1; offsetY++) {
                     const std::vector<particle_t *> &cell =
@@ -94,7 +97,6 @@ int runSerialWithParticles(FILE *fsave, int n, particle_t *particles) {
                     }
                 }
             }
-            END_TIMED_ZONE(applyForce);
 
 #ifdef DEBUG
             auto all = find_all_colliding_particles(n, particles, particles[i]);
@@ -108,6 +110,7 @@ int runSerialWithParticles(FILE *fsave, int n, particle_t *particles) {
             }
 #endif
         }
+        END_TIMED_ZONE(applyForce);
 
         //  move particles
         //  and update their position in the grid

@@ -14,6 +14,6 @@ int runSerialWithParticles(FILE *fsave, int n, particle_t *particles);
     auto result ## name = profiling.find(#name);\
     if (result ## name != profiling.end()) current ## name = result ## name->second;\
     double diff ## name = read_timer() - timer ## name; \
-    profiling.insert({#name, current ## name + diff ## name})
+    profiling[#name] = current ## name + diff ## name
 
 #endif //DM818_SERIAL_SERIAL_H
