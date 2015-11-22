@@ -33,6 +33,15 @@ typedef struct {
     double y;
 } SavedParticle;
 
+#define DECLARE_TIMED_ZONE(name) double timer ## name = read_timer();
+#define START_TIMED_ZONE(name) timer ## name = read_timer()
+#define BEGIN_TIMED_ZONE(name) double timer ## name = read_timer()
+#define END_TIMED_ZONE(name) double current ## name = 0; \
+    auto result ## name = profiling.find(#name);\
+    if (result ## name != profiling.end()) current ## name = result ## name->second;\
+    double diff ## name = read_timer() - timer ## name; \
+    profiling.insert({#name, current ## name + diff ## name})
+
 #ifdef DEBUG
 #define VALIDATE_GHOST_ZONE(zone) {\
     assert(zone.particleCount >= 0);\

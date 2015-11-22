@@ -4,6 +4,7 @@
 #include <assert.h>
 #include <sstream>
 #include <algorithm>
+#include <unordered_map>
 
 #include "grid.h"
 #include "mpi.h"
@@ -70,6 +71,8 @@ GhostZone borrowedLower;
 // Insertions from an owned zone into a borrowed one
 std::vector<particle_t> insertionsIntoUpperBorrowed;
 std::vector<particle_t> insertionsIntoLowerBorrowed;
+
+std::unordered_map<std::string, double> profiling;
 
 void initParticleType();
 
@@ -180,7 +183,6 @@ void exchangeInformationAbove(particle_t **insertedLower, int *insertedLowerCoun
     if (rank < maxRank - 1) {
         WHEN_DEBUGGING(gridValidate(0, __FILE__, __LINE__));
         exchangeParticles(ownedUpper, borrowedUpper, 1);
-        WHEN_DEBUGGING(gridValidate(0, __FILE__, __LINE__));
         *insertedLower = exchangeInsertions(insertionsIntoUpperBorrowed, 1, insertedLowerCount);
         WHEN_DEBUGGING(gridValidate(0, __FILE__, __LINE__));
     }
@@ -190,7 +192,6 @@ void exchangeInformationBelow(particle_t **insertedUpper, int *insertedUpperCoun
     if (rank > 0) {
         WHEN_DEBUGGING(gridValidate(0, __FILE__, __LINE__));
         exchangeParticles(ownedLower, borrowedLower, -1);
-        WHEN_DEBUGGING(gridValidate(0, __FILE__, __LINE__));
         *insertedUpper = exchangeInsertions(insertionsIntoLowerBorrowed, -1, insertedUpperCount);
         WHEN_DEBUGGING(gridValidate(0, __FILE__, __LINE__));
     }
@@ -220,15 +221,20 @@ void exchangeInformationWithNeighborHood() {
     particle_t *insertedIntoLowerOwned = NULL;
 
     // Prepare ghost zones such that we're ready to exchange them with our neighbors
+    BEGIN_TIMED_ZONE(messagePrep);
     prepareGhostZoneForExchange(ownedUpper);
     prepareGhostZoneForExchange(ownedLower);
+    END_TIMED_ZONE(messagePrep);
 
     // Purge the borrowed ghost zones, as we will receive new particles soon.
     WHEN_DEBUGGING(gridValidate(0, __FILE__, __LINE__));
+    BEGIN_TIMED_ZONE(purgeGrid);
     gridPurge(borrowedLower.coordinateStart, borrowedLower.coordinateStart + gridColumns);
     gridPurge(borrowedUpper.coordinateStart, borrowedUpper.coordinateStart + gridColumns);
+    END_TIMED_ZONE(purgeGrid);
     WHEN_DEBUGGING(gridValidate(0, __FILE__, __LINE__));
 
+    BEGIN_TIMED_ZONE(informationExchange);
     if (rank % 2 == 0) {
         // Even ranks communicate with processors above us first
         exchangeInformationAbove(&insertedIntoLowerOwned, &insertedIntoLowerOwnedCount);
@@ -238,8 +244,10 @@ void exchangeInformationWithNeighborHood() {
         exchangeInformationBelow(&insertedIntoUpperOwned, &insertedIntoUpperOwnedCount);
         exchangeInformationAbove(&insertedIntoLowerOwned, &insertedIntoLowerOwnedCount);
     }
+    END_TIMED_ZONE(informationExchange);
 
     // First insert the complete state changes from our neighbor merged with out own local insertions in these zones
+    BEGIN_TIMED_ZONE(worldUpdate);
     WHEN_DEBUGGING(gridValidate(0, __FILE__, __LINE__));
     updateGrid(borrowedUpper, insertionsIntoUpperBorrowed);
     updateGrid(borrowedLower, insertionsIntoLowerBorrowed);
@@ -254,7 +262,7 @@ void exchangeInformationWithNeighborHood() {
     // Clear insertions from last iteration
     insertionsIntoLowerBorrowed.clear();
     insertionsIntoUpperBorrowed.clear();
-
+    END_TIMED_ZONE(worldUpdate);
     WHEN_DEBUGGING(gridValidate(0, __FILE__, __LINE__));
 
     // Release inserted
@@ -263,6 +271,7 @@ void exchangeInformationWithNeighborHood() {
 }
 
 int main(int argc, char **argv) {
+    double simulation_time = read_timer();
     globalParticleCount = read_int(argc, argv, "-n", 1000);
     char *savename = read_string(argc, argv, "-o", NULL);
     FILE *fsave = savename && rank == 0 ? fopen(savename, "w") : NULL;
@@ -271,11 +280,11 @@ int main(int argc, char **argv) {
     initMPI(argc, argv);
     initSystem();
     WHEN_DEBUGGING(gridValidate(0, __FILE__, __LINE__));
-
-    double simulation_time = read_timer();
+    DECLARE_TIMED_ZONE(synchronization);
     for (int step = 0; step < NSTEPS; step++) {
-        if (rank == 0) printf("Step = %d. MaxPosition = %d\n", step, maxPosition);
+//        if (rank == 0) printf("Step = %d. MaxPosition = %d\n", step, maxPosition);
         MPI_Barrier(MPI_COMM_WORLD);
+        END_TIMED_ZONE(synchronization);
         exchangeInformationWithNeighborHood();
 
 #ifdef DEBUG
@@ -291,6 +300,7 @@ int main(int argc, char **argv) {
 #endif
 
         //  compute forces
+        BEGIN_TIMED_ZONE(applyForce);
         for (int i = 0; i < maxPosition; i++) {
             ownedParticles[i].ax = ownedParticles[i].ay = 0;
 
@@ -310,8 +320,10 @@ int main(int argc, char **argv) {
                 }
             }
         }
+        END_TIMED_ZONE(applyForce);
 
         // Move and update particles
+        BEGIN_TIMED_ZONE(moveParticles);
         for (int i = 0; i < maxPosition; i++) {
             particle_t *particle = &ownedParticles[i];
 #ifdef DEBUG
@@ -372,9 +384,11 @@ int main(int argc, char **argv) {
                 gridAdd(particle);
             }
         }
+        END_TIMED_ZONE(moveParticles);
 
         //  save if necessary
         if (savename && step % SAVEFREQ == 0) {
+            BEGIN_TIMED_ZONE(saveLocalResult);
             for (int i = 0; i < maxPosition; i++) {
                 SavedParticle save;
                 save.x = ownedParticles[i].x;
@@ -383,8 +397,9 @@ int main(int argc, char **argv) {
                 save.step = step;
                 savedParticles.push_back(save);
             }
+            END_TIMED_ZONE(saveLocalResult);
         }
-        // Communicate to rank 0 with result
+        START_TIMED_ZONE(synchronization);
     }
     simulation_time = read_timer() - simulation_time;
 
@@ -392,7 +407,15 @@ int main(int argc, char **argv) {
         combineResult(fsave);
     }
 
-    if (rank == 0) { printf("n = %d, simulation time = %g seconds\n", globalParticleCount, simulation_time); }
+    if (rank == 0) {
+        printf("n = %d, simulation time = %g seconds\n", globalParticleCount, simulation_time);
+        double totalTime = 0;
+        for (auto stat : profiling) {
+            std::cout << stat.first << ":" << stat.second << std::endl;
+            totalTime += stat.second;
+        }
+        printf("Total time: %f\n", totalTime);
+    }
 
     if (fsave) {
         fclose(fsave);
@@ -407,6 +430,7 @@ bool compareSavedParticle(SavedParticle *a, SavedParticle *b) {
 }
 
 void combineResult(FILE *fsave) {
+    BEGIN_TIMED_ZONE(combineResult);
     int counts[maxRank];
     SavedParticle *combinedOutput = NULL;
     int *displacements = NULL;
@@ -445,9 +469,11 @@ void combineResult(FILE *fsave) {
         }
         printf("Sorted and saved output file!\n");
     }
+    END_TIMED_ZONE(combineResult);
 }
 
 void initSystem() {
+    BEGIN_TIMED_ZONE(initSystem);
     int sendCount[maxRank];
     int sendDisplacement[maxRank];
 
@@ -511,6 +537,7 @@ void initSystem() {
 
     free(particles);
     free(particlesToSend);
+    END_TIMED_ZONE(initSystem);
 }
 
 void validateScatter(particle_t *particlesToSend, particle_t *localParticles, int localCount) {
@@ -573,12 +600,14 @@ void validateRootInitialization(int currentProcessor, int counter, particle_t *p
 }
 
 void initMPI(int &argc, char **&argv) {
+    BEGIN_TIMED_ZONE(mpiInit);
     MPI_Init(&argc, &argv);
     MPI_Comm_size(MPI_COMM_WORLD, &maxRank);
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
     initParticleType();
     initSavedParticleType();
+    END_TIMED_ZONE(mpiInit);
 }
 
 void initSavedParticleType() {
