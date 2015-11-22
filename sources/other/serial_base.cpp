@@ -1,6 +1,8 @@
 #include <stdlib.h>
+#include <tgmath.h>
 
 #include "serial_base.h"
+#include "grid.h"
 
 int runSerialBaseImplementation(int argc, char **argv) {
     if (find_option(argc, argv, "-h") >= 0) {
@@ -20,9 +22,12 @@ int runSerialBaseImplementation(int argc, char **argv) {
     return runSerialBaseImplementationWithParticles(fsave, n, particles);
 }
 
+int maxRowsMoved = 0;
+
 int runSerialBaseImplementationWithParticles(FILE *fsave, int n, particle_t *particles) {
     set_size(n);
     init_particles(n, particles);
+    grid_init(sqrt(0.0005 * n) / 0.01);
 
     //
     //  simulate a number of time steps
@@ -41,8 +46,13 @@ int runSerialBaseImplementationWithParticles(FILE *fsave, int n, particle_t *par
         //
         //  move particles
         //
-        for (int i = 0; i < n; i++)
+        for (int i = 0; i < n; i++) {
+            int before = get_particle_coordinate(&particles[i]);
             move(particles[i]);
+            int after = get_particle_coordinate(&particles[i]);
+            int i1 = abs(before - after) / gridColumns;
+            if (i1 > maxRowsMoved) maxRowsMoved = i1;
+        }
 
         //
         //  save if necessary
@@ -54,6 +64,7 @@ int runSerialBaseImplementationWithParticles(FILE *fsave, int n, particle_t *par
 
     printf("n = %d, simulation time = %g seconds\n", n, simulation_time);
 
+    printf("Max rows: %d\n", maxRowsMoved);
     free(particles);
     if (fsave)
         fclose(fsave);

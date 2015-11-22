@@ -6,7 +6,7 @@ ifeq ($(OSTYPE), Darwin)
   LIBS = -lSDLmain -lSDL
   FRAMEWORKS = -framework SDL -framework OpenGL -framework Cocoa
 else
-  INCLUDES = -I/usr/include/SDL2
+  INCLUDES = -I/usr/include/SDL
   LIBS = -lSDLmain -lSDL -lGL -lGLU
   FRAMEWORKS =
 endif

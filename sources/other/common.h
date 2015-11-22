@@ -1,6 +1,8 @@
 #ifndef __CS267_COMMON_H__
 #define __CS267_COMMON_H__
 
+#include <unistd.h>
+
 //
 //  tuned constants
 //
@@ -30,6 +32,7 @@ typedef struct {
     double vy;
     double ax;
     double ay;
+    int id;
 } particle_t;
 
 //
@@ -65,5 +68,15 @@ int read_int(int argc, char **argv, const char *option, int default_value);
 char *read_string(int argc, char **argv, const char *option, char *default_value);
 
 void reset();
+
+#ifdef DEBUG
+#define CASSERT(expr, message, ...) if (!(expr)) {\
+    printf("[%d] Assertion failed at %s:%d. Message: " message "\n", getpid(), __FILE__, __LINE__, __VA_ARGS__);\
+    assert(expr);\
+}
+#endif
+#ifndef DEBUG
+#define CASSERT(expr, message, ...)
+#endif
 
 #endif

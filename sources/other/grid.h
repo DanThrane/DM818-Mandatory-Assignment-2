@@ -1,5 +1,6 @@
 #include <vector>
 
+
 #include "common.h"
 
 extern int gridColumns;
@@ -10,7 +11,7 @@ void grid_add(particle_t *particle);
 
 void grid_remove(particle_t *particle);
 
-void validate_grid(int particle_count);
+void validate_grid(int particle_count, const char *const file, int line);
 
 std::vector<particle_t *> grid_get_collisions(particle_t *particle);
 
@@ -23,3 +24,5 @@ std::vector<particle_t *> grid_get_at(int coordinate);
 void grid_reset();
 
 void grid_purge(int startInclusive, int endExclusive);
+
+void validate_particles_within_sub_grid(int startInclusive, int endInclusive);

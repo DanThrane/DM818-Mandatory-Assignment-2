@@ -1,10 +1,12 @@
 #include <vector>
 #include <algorithm>
 #include <assert.h>
+#include <unordered_map>
 
 #include "grid.h"
 
 std::vector<std::vector<particle_t *> > grid;
+
 int gridColumns;
 
 int get_particle_coordinate(const particle_t *particle);
@@ -12,6 +14,7 @@ int get_particle_coordinate(const particle_t *particle);
 void grid_init(double size) {
     gridColumns = (int) (size + 1);
     grid.resize((unsigned long) (gridColumns * gridColumns));
+    printf("Grid size: %d\n", (int) grid.size());
 }
 
 void grid_reset() {
@@ -19,15 +22,39 @@ void grid_reset() {
     grid.resize((unsigned long) (gridColumns * gridColumns));
 }
 
-void validate_grid(int particle_count) {
+void validate_grid(int particle_count, const char *const file, int line) {
     int particles_in_system = 0;
     for (int i = 0; i < grid.size(); i++) {
         for (auto particle : grid[i]) {
-            assert(get_particle_coordinate(particle) == i);
+            int realCoordinate = get_particle_coordinate(particle);
+            if (realCoordinate != i) {
+                printf("Assertion fail at %s:%d\n", file, line);
+                printf("I found a particle in %d which belongs to %d\n", i, realCoordinate);
+                assert(realCoordinate == i);
+            }
         }
         particles_in_system += grid[i].size();
     }
-    assert(particles_in_system == particle_count);
+    if (particle_count != 0) {
+        if (particles_in_system != particle_count) {
+            printf("Assertion fail at %s:%d\n", file, line);
+            assert(particles_in_system == particle_count);
+        }
+    }
+}
+
+void validate_particles_within_sub_grid(int startInclusive, int endInclusive) {
+    assert(startInclusive >= 0);
+    assert(endInclusive <= gridColumns * gridColumns);
+
+    for (int i = 0; i < startInclusive; i++) {
+        CASSERT(grid[i].empty(), "Expected cell %d to be empty. We're only expecting particles in %d to %d", i,
+                startInclusive, endInclusive);
+    }
+    for (int i = endInclusive + 1; i < gridColumns * gridColumns; i++) {
+        CASSERT(grid[i].empty(), "Expected cell %d to be empty. We're only expecting particles in %d to %d", i,
+                startInclusive, endInclusive);
+    }
 }
 
 void grid_add(particle_t *particle) {
@@ -61,9 +88,10 @@ void grid_remove(particle_t *particle) {
 }
 
 void grid_purge(int startInclusive, int endExclusive) {
-    for (int i = startInclusive; i < endExclusive; i++) {
-        // TODO Release particles too?
-        grid[i].clear();
+    if (startInclusive >= 0 && endExclusive < grid.size()) {
+        for (int i = startInclusive; i < endExclusive; i++) {
+            grid[i].clear();
+        }
     }
 }
 
@@ -85,5 +113,5 @@ std::vector<particle_t *> grid_get_collisions_at_neighbor(particle_t *particle, 
         return std::vector<particle_t *>();
     }
 
-    return grid[coordinate + (offsetY * 23) + offsetX];
+    return grid[coordinate + (offsetY * gridColumns) + offsetX];
 }

@@ -29,6 +29,6 @@ int main(int argc, char **argv) {
     runSerialBaseImplementationWithParticles(fBase, n, particles);
     reset();
 //    runSerialBaseImplementationWithParticles(fNew, n, particles2);
-    runSerialWithParticles(fNew, n, particles2);
+//    runSerialWithParticles(fNew, n, particles2);
     return 0;
 }
