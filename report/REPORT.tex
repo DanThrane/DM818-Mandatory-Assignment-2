@@ -1,0 +1,241 @@
+\documentclass[a4paper,11pt,oneside]{book}
+
+\usepackage[english]{babel}
+\usepackage[showframe=false]{geometry}
+\usepackage[usenames,dvipsnames]{xcolor}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{changepage}
+\usepackage[]{algorithm2e}
+\usepackage{amssymb}
+\usepackage{amsmath}
+\usepackage{graphicx}
+\usepackage{listings}
+\usepackage{verbatimbox}
+\usepackage{ulem}
+\usepackage{fancyvrb}
+\usepackage{float}
+\usepackage{hyperref}
+\usepackage[parfill]{parskip}
+\usepackage{tikz}
+\usepackage{pdflscape}
+\usepackage{minted}
+\usepackage{titlesec}
+\usepackage{titleps}
+\usepackage{lastpage}
+\usepackage{fancyhdr}
+\usepackage{etoolbox}
+\usepackage[]{algorithm2e}
+%Following overwrites the page style for chapters
+\patchcmd{\chapter}{\thispagestyle{plain}}{\thispagestyle{ruledChapter}}{}{}
+
+%New page style for chapters
+\newpagestyle{ruledChapter}{
+	\setfoot{}{\thepage\ of \pageref{LastPage}}{}
+	\footrule
+	\renewcommand\makefootrule{\color{black}\rule[\baselineskip]{\linewidth}{0.4pt}}
+}
+%New page style for rest
+\newpagestyle{ruled}{
+	\sethead{\raggedright \chaptername\ \thechapter :\ \chaptertitle}{}{}
+	\headrule
+	\setfoot{}{\thepage\ of \pageref{LastPage}}{}
+	\footrule
+	\renewcommand\makeheadrule{\color{black}\rule[-.3\baselineskip]{\linewidth}{0.4pt}}
+	\renewcommand\makefootrule{\color{black}\rule[\baselineskip]{\linewidth}{0.4pt}}
+}
+
+\expandafter\def\csname PY@tok@err\endcsname{}
+\newcommand{\HRule}{\rule{\linewidth}{0.5mm}}
+\newcommand{\specialcell}[2][c]{%
+  \begin{tabular}[#1]{@{}c@{}}#2\end{tabular}}
+
+\addtocontents{toc}{\protect\thispagestyle{empty}}
+
+\title{}
+\author{}
+\date{} 
+
+\begin{document}
+\begin{titlepage}
+\begin{center}
+
+%-----------------------------------------------------------------
+%							FRONTPAGE
+%-----------------------------------------------------------------
+\thispagestyle{empty}
+\includegraphics[width=0.55\textwidth]{logo.pdf}\\[1cm]    
+\textsc{\Large DM818 Assignment 2}\\[0.5cm]
+
+% Title
+\begin{Huge}
+\textbf{Parallel Particle Simulation}
+\end{Huge}
+
+\vspace{4cm}
+
+% Author and supervisor
+\begin{minipage}{1\textwidth}
+\begin{center}
+\emph{}\\
+
+Dan \textsc{Sebastian Thrane}\\
+\verb!<dathr12@student.sdu.dk>!\\
+
+Lars \textsc{Thomasen}\\
+\verb!<latho12@student.sdu.dk>!\\
+
+\end{center}
+\end{minipage}
+\begin{minipage}{0.4\textwidth}
+\end{minipage}
+
+\vfill
+
+% Bottom of the page
+{\large Winter 2015}\\
+
+\end{center}
+\end{titlepage}
+
+%-----------------------------------------------------------------
+%							   TOC
+%-----------------------------------------------------------------
+\renewcommand{\contentsname}{Table of Contents}
+\tableofcontents
+\thispagestyle{empty}
+
+%-----------------------------------------------------------------
+%						  ACTUAL REPORT
+%-----------------------------------------------------------------
+\pagestyle{ruled}
+\chapter{Introduction}
+\setcounter{section}{1}
+
+This reports documents the second mandatory assignment for the course DM818 Parallel Computing. In this assignment we
+were given a particle simulation which runs in $O(n^{2})$ time, and were asked to code the following:
+
+\begin{enumerate}
+\item Change the implementation such that it runs in $O(n)$ time.
+\item Parallelize the changed code using either OpenMP, PThreads, or MPI.
+\end{enumerate}
+
+In order to measure proper performance gain, we need to optimize the serial algorithm first, and then parallelize it
+such that the comparison stays fair. It would be easy to show a massive performance gain if the algorithm for the
+parallel implementation is vastly superior to the one used for linear.
+ 
+\section{Work Load}
+
+% A statement of who contributed with what.
+
+The distribution of the workload has been equal, and pair programming in the IMADA terminal room have been the preferred
+method throughout this project.
+
+\chapter{A Linear Algorithm}
+
+% A plot in log-log scale that shows that your serial and parallel codes run in O(n) time and a description of the data
+% structures that you used to achieve it.
+
+\section{The Base Algorithm}
+
+The given algorithm for the serial implementation (and the parallel versions) are as follows, clearly running in
+$O(n^{2})$ runtime. This was unacceptable and thus a new algorithm has been developed.
+
+\begin{minted}[frame=single,linenos=true]{c}
+for(int i = 0; i < n; i++) {
+  particles[i].ax = particles[i].ay = 0;
+  for (int j = 0; j < n; j++) {
+    apply_force(particles[i], particles[j]);
+  }
+}
+\end{minted}
+
+The problem with this algorithm is that it applies forces between all pairs of particles, while the rules for the
+particle simulation states that any particle may only be affected by nearby particles.
+
+\section{The new algorithm}
+
+The range for interaction for the particles was reduced to a smaller value, denoted as the ``cutoff'' value. This cutoff
+value was showcased as a grey border on a particle in the assignment.
+
+\begin{figure}[H]
+  \centering
+  \begin{minipage}[b]{0.4\textwidth}
+    \includegraphics[width=\textwidth]{cutoff.png}
+    \caption{Snapshot of the GIF from the assignment showcasing the influence ring.}
+  \end{minipage}
+\end{figure}
+
+Having a reduced area of interaction, allows us to reduce the amount of particles influencing the amount of force needed
+to be applied to a given particle, thus we can reduce the inner for-loop greatly.
+
+In order to reduce the loop it is necessary to know which particles are within (or at least close by) the particle we
+want to apply the force. To do this we needed to develop a data structure, to keep track of where the particles are
+positioned.
+
+In order to track the location of the particles, the coordinate system is divided into a grid of cells. Each cell holds
+some number of particles within a sub-grid of the entire universe. The sizes of the cells are chosen to match the
+``cutoff'' value, such that we only need to check the neighboring cells for collisions with a particle.
+
+\begin{figure}[H]
+  \centering
+  \begin{minipage}[b]{0.4\textwidth}
+    \includegraphics[width=\textwidth]{grid.jpg}
+    \caption{The grid structure, each square is the size of the cutoff distance.}
+  \end{minipage}
+  \begin{minipage}[b]{0.4\textwidth}
+    \includegraphics[width=\textwidth]{gridexample.png}
+    \caption{A particle located inside a grid position, and its influence range.}
+  \end{minipage}
+\end{figure}
+
+Initially all particles are added to the grid. When updates are performed on a particle, it will be moved  to the
+appropriate cell as well.
+
+\section{Implementing the Grid Approach}
+
+% TODO Not sure about this section
+
+The implementation uses a separate file named \verb!grid.cpp! and \verb!grid.h!. These files holds the data structure
+and a series of helper methods that allows us to add, get and remove particles to the grid. The grid itself is 2D array
+of particles.
+
+Whenever we move a particle, we simply remove the particle from the grid completely, and then add it back in. This way
+the old position is removed, and the new position is calculated from the particles new position when added again. 
+
+\section{Performance of the New Algorithm}
+
+Below is a graph plotted for different times (see appendix A) showcasing how the $O(n^{2})$ and $O(n)$ algorithms do
+versus each other. It is easy to see that the $O(n)$ is indeed linear. Note that bigger sizes did not terminate in
+reasonable time for the $O(n^{2})$ algorithm.
+
+\begin{figure}[H]
+  \centering
+  \begin{minipage}[b]{0.9\textwidth}
+    \includegraphics[width=\textwidth]{graph_regular.png}
+    \caption{The original $O(n^{2})$ algorithm (blue) versus the new $O(n)$ algorithm (red).}
+  \end{minipage}
+\end{figure}
+
+\input{mpi_implementation}
+
+\chapter{Conclusion}
+
+
+%-----------------------------------------------------------------
+%						     APPENDIX
+%-----------------------------------------------------------------
+\newpage
+\newgeometry{left=2.5cm,right=2.5cm}
+\chapter{Appendix}
+\section{Serial algorithm plotting data}
+
+\begin{figure}[H]
+  \centering
+  \begin{minipage}[b]{0.9\textwidth}
+    \includegraphics[width=\textwidth]{plotdata.png}
+    \caption{Plotting data for the serial runtimes. Base being the handed out version, and N being the linear implementation.}
+  \end{minipage}
+\end{figure}
+
+\end{document}
