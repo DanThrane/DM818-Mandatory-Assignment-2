@@ -35,16 +35,16 @@ LIBS =
 #CFLAGS = -O3
 #MPILIBS = -lmpi++ -lmpi
 
-TARGETS = mpi
+TARGETS = serial pthreads openmp mpi
 
 all:	$(TARGETS)
 
-mpi: mpi.o common.o
-	$(MPCC) -o $@ $(LIBS) $(MPILIBS) mpi.o common.o
+openmp: openmp.o common.o
+	$(CC) -o $@ $(LIBS) $(OPENMP) openmp.o common.o
 
 openmp.o: openmp.cpp common.h
 	$(CC) -c $(OPENMP) $(CFLAGS) openmp.cpp
-serial.o: serial.cpp grid.h common.h
+serial.o: serial.cpp common.h
 	$(CC) -c $(CFLAGS) serial.cpp
 pthreads.o: pthreads.cpp common.h
 	$(CC) -c $(CFLAGS) pthreads.cpp
@@ -52,8 +52,6 @@ mpi.o: mpi.cpp common.h
 	$(MPCC) -c $(CFLAGS) mpi.cpp
 common.o: common.cpp common.h
 	$(CC) -c $(CFLAGS) common.cpp
-grid.o: grid.cpp grid.h common.h
-	$(CC) -c $(CFLAGS) grid.cpp
 
 clean:
 	rm -f *.o $(TARGETS)

@@ -41,12 +41,6 @@ all:	$(TARGETS)
 
 serial: serial.o grid.o common.o
 	$(CC) -o $@ $(LIBS) serial.o grid.o common.o
-pthreads: pthreads.o common.o
-	$(CC) -o $@ $(LIBS) -lpthread pthreads.o common.o
-openmp: openmp.o common.o
-	$(CC) -o $@ $(LIBS) $(OPENMP) openmp.o common.o
-mpi: mpi.o common.o
-	$(MPCC) -o $@ $(LIBS) $(MPILIBS) mpi.o common.o
 
 openmp.o: openmp.cpp common.h
 	$(CC) -c $(OPENMP) $(CFLAGS) openmp.cpp
