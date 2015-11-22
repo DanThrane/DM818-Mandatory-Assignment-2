@@ -3,10 +3,16 @@
 #include <math.h>
 #include <algorithm>
 #include <assert.h>
+#include <unordered_map>
+#include <ostream>
+#include <iostream>
 
 #include "common.h"
 #include "grid.h"
 #include "serial.h"
+
+// Used to account for time spent
+std::unordered_map<std::string, double> profiling;
 
 // benchmarking program
 // note: i don't expect this to compile.
@@ -64,7 +70,7 @@ int runSerialWithParticles(FILE *fsave, int n, particle_t *particles) {
 #ifdef DEBUG
         gridValidate(n, __FILE__, __LINE__);
 #endif
-        printf("NSTEP = %i\n", step);
+        //printf("NSTEP = %i\n", step);
 
         //  compute forces
         for (int i = 0; i < n; i++) {
@@ -74,6 +80,7 @@ int runSerialWithParticles(FILE *fsave, int n, particle_t *particles) {
 #ifdef DEBUG
             std::vector<particle_t *> all_particles_visited;
 #endif
+            BEGIN_TIMED_ZONE(applyForce);
             for (int offsetX = -1; offsetX <= 1; offsetX++) {
                 for (int offsetY = -1; offsetY <= 1; offsetY++) {
                     const std::vector<particle_t *> &cell =
@@ -87,6 +94,7 @@ int runSerialWithParticles(FILE *fsave, int n, particle_t *particles) {
                     }
                 }
             }
+            END_TIMED_ZONE(applyForce);
 
 #ifdef DEBUG
             auto all = find_all_colliding_particles(n, particles, particles[i]);
@@ -103,6 +111,7 @@ int runSerialWithParticles(FILE *fsave, int n, particle_t *particles) {
 
         //  move particles
         //  and update their position in the grid
+        BEGIN_TIMED_ZONE(moveParticles);
         for (int i = 0; i < n; i++) {
             int coordinate = gridGetParticleCoordinate(&particles[i]);
             gridRemove(&particles[i]);
@@ -116,14 +125,24 @@ int runSerialWithParticles(FILE *fsave, int n, particle_t *particles) {
                 if (i1 > maxRows) maxRows = i1;
             }
         }
+        END_TIMED_ZONE(moveParticles);
 
         //  save if necessary
-        if (fsave && (step % SAVEFREQ) == 0)
+        if (fsave && (step % SAVEFREQ) == 0) {
+            BEGIN_TIMED_ZONE(saveLocalResult);
             save(fsave, n, particles);
+            END_TIMED_ZONE(saveLocalResult);
+        }
     }
     simulation_time = read_timer() - simulation_time;
 
     printf("n = %d, simulation time = %g seconds\n", n, simulation_time);
+    double totalTime = 0;
+    for (auto stat : profiling) {
+        std::cout << stat.first << ":" << stat.second << std::endl;
+        totalTime += stat.second;
+    }
+    printf("Total time: %f\n", totalTime);
 
     free(particles);
     if (fsave)
