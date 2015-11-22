@@ -8,7 +8,7 @@
 
 #define DEFAULT_FILENAME "sample.txt"
 #define eps 0.1
-#define SCALE 200
+#define SCALE 500
 #define FPS 15
 #define MIN_SIZE 100
 
