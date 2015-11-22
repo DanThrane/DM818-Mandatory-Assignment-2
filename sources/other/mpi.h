@@ -40,7 +40,7 @@ typedef struct {
     auto result ## name = profiling.find(#name);\
     if (result ## name != profiling.end()) current ## name = result ## name->second;\
     double diff ## name = read_timer() - timer ## name; \
-    profiling.insert({#name, current ## name + diff ## name})
+    profiling[#name] = current ## name + diff ## name
 
 #ifdef DEBUG
 #define VALIDATE_GHOST_ZONE(zone) {\
