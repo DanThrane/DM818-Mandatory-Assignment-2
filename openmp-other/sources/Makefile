@@ -35,7 +35,7 @@ LIBS =
 #CFLAGS = -O3
 #MPILIBS = -lmpi++ -lmpi
 
-TARGETS = serial pthreads openmp mpi
+TARGETS = openmp
 
 all:	$(TARGETS)
 
