@@ -197,28 +197,11 @@ appropriate cell as well.
 % TODO Not sure about this section
 
 The implementation uses a separate file named \verb!grid.cpp! and \verb!grid.h!. These files holds the data structure
-and a series of helper methods that allows us to add, get and remove particles to the grid.
-
-The grid itself is 	a vector of vectors with particles.
-
-\begin{verbatim}
-std::vector<std::vector<particle_t *> > grid;
-\end{verbatim}
-
-The coordinate positions consists of doubles, while the grid positions are mapped to integers. To overcome this the
-coordinate positions are simply converted using the following formula, which simply moves the decimal two places to the
-right and casting to an integer. Thereby giving us a consistent mapping of doubles to integers:
-
-\begin{align*}
-\frac{\text{double value}}{0.01}
-\end{align*}
+and a series of helper methods that allows us to add, get and remove particles to the grid. The grid itself is 2D array
+of particles.
 
 Whenever we move a particle, we simply remove the particle from the grid completely, and then add it back in. This way
-the old position is removed, and the new position is calculated from the particles new position when added again. \\
-This method assumes the particle always switches position in the grid, it could be calculated whether this actually is
-the case, but this was not done. Consequence to this method is that some unnecessary calculations might be performed
-whenever a particle do not move, since it would be removed and added back to the same grid position. The correctness of
-the algorithm is however not affected.
+the old position is removed, and the new position is calculated from the particles new position when added again. 
 
 \section{Performance of the New Algorithm}
 
