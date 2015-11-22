@@ -53,16 +53,16 @@ int maxRows = 0;
 
 int runSerialWithParticles(FILE *fsave, int n, particle_t *particles) {
     // new additions for linear runstime
-    grid_init(sqrt(0.0005 * n) / 0.01);
+    gridInit(sqrt(0.0005 * n) / 0.01);
     for (int i = 0; i < n; ++i) {
-        grid_add(&particles[i]);
+        gridAdd(&particles[i]);
     }
 
     //  simulate a number of time steps
     double simulation_time = read_timer();
     for (int step = 0; step < NSTEPS; step++) {
 #ifdef DEBUG
-        validate_grid(n, __FILE__, __LINE__);
+        gridValidate(n, __FILE__, __LINE__);
 #endif
         printf("NSTEP = %i\n", step);
 
@@ -77,7 +77,7 @@ int runSerialWithParticles(FILE *fsave, int n, particle_t *particles) {
             for (int offsetX = -1; offsetX <= 1; offsetX++) {
                 for (int offsetY = -1; offsetY <= 1; offsetY++) {
                     const std::vector<particle_t *> &cell =
-                            grid_get_collisions_at_neighbor(&particles[i], offsetX, offsetY);
+                            gridGetCollisionsAtNeighbor(&particles[i], offsetX, offsetY);
 
                     for (auto particle : cell) {
                         apply_force(particles[i], *particle);
@@ -104,11 +104,11 @@ int runSerialWithParticles(FILE *fsave, int n, particle_t *particles) {
         //  move particles
         //  and update their position in the grid
         for (int i = 0; i < n; i++) {
-            int coordinate = get_particle_coordinate(&particles[i]);
-            grid_remove(&particles[i]);
+            int coordinate = gridGetParticleCoordinate(&particles[i]);
+            gridRemove(&particles[i]);
             move(particles[i]);
-            grid_add(&particles[i]);
-            int newCoordinate = get_particle_coordinate(&particles[i]);
+            gridAdd(&particles[i]);
+            int newCoordinate = gridGetParticleCoordinate(&particles[i]);
             if (abs(coordinate - newCoordinate) > gridColumns) {
                 int i1 = abs(coordinate - newCoordinate) / gridColumns;
 //                printf("Moved %d cells (From %d to %d [%d rows])\n", abs(coordinate - newCoordinate), coordinate,

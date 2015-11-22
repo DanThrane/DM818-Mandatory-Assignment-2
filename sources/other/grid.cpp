@@ -9,24 +9,24 @@ std::vector<std::vector<particle_t *> > grid;
 
 int gridColumns;
 
-int get_particle_coordinate(const particle_t *particle);
+int gridGetParticleCoordinate(const particle_t *particle);
 
-void grid_init(double size) {
+void gridInit(double size) {
     gridColumns = (int) (size + 1);
     grid.resize((unsigned long) (gridColumns * gridColumns));
     printf("Grid size: %d\n", (int) grid.size());
 }
 
-void grid_reset() {
+void gridReset() {
     grid.clear();
     grid.resize((unsigned long) (gridColumns * gridColumns));
 }
 
-void validate_grid(int particle_count, const char *const file, int line) {
+void gridValidate(int particle_count, const char *const file, int line) {
     int particles_in_system = 0;
     for (int i = 0; i < grid.size(); i++) {
         for (auto particle : grid[i]) {
-            int realCoordinate = get_particle_coordinate(particle);
+            int realCoordinate = gridGetParticleCoordinate(particle);
             if (realCoordinate != i) {
                 printf("Assertion fail at %s:%d\n", file, line);
                 printf("I found a particle in %d which belongs to %d\n", i, realCoordinate);
@@ -43,7 +43,7 @@ void validate_grid(int particle_count, const char *const file, int line) {
     }
 }
 
-void validate_particles_within_sub_grid(int startInclusive, int endInclusive) {
+void gridValidateParticlesOnlyWithinZone(int startInclusive, int endInclusive) {
     assert(startInclusive >= 0);
     assert(endInclusive <= gridColumns * gridColumns);
 
@@ -57,7 +57,7 @@ void validate_particles_within_sub_grid(int startInclusive, int endInclusive) {
     }
 }
 
-void grid_add(particle_t *particle) {
+void gridAdd(particle_t *particle) {
     // Idea is to see the array as the grid, and store particles into it
     // at their positions, converting to integers is nessecary (right?), and
     // should only slightly affect their real position so a few too many 
@@ -65,7 +65,7 @@ void grid_add(particle_t *particle) {
 
     // I fear the whole double positioning might have eluded me though 
     // and this conversion wont work. Needs to be tested i guess.
-    int coordinate = get_particle_coordinate(particle);
+    int coordinate = gridGetParticleCoordinate(particle);
 
     grid[coordinate].push_back(particle);
 }
@@ -75,19 +75,19 @@ int get_particle_coordinate(double x, double y) {
     return coordinate;
 }
 
-int get_particle_coordinate(const particle_t *particle) {
+int gridGetParticleCoordinate(const particle_t *particle) {
     int coordinate = (int) (particle->x / 0.01) * gridColumns + (int) (particle->y / 0.01);
     return coordinate;
 }
 
-void grid_remove(particle_t *particle) {
-    int coordinate = get_particle_coordinate(particle);
+void gridRemove(particle_t *particle) {
+    int coordinate = gridGetParticleCoordinate(particle);
 
     std::vector<particle_t *> &cell = grid[coordinate];
     cell.erase(std::remove(cell.begin(), cell.end(), particle), cell.end());
 }
 
-void grid_purge(int startInclusive, int endExclusive) {
+void gridPurge(int startInclusive, int endExclusive) {
     if (startInclusive >= 0 && endExclusive < grid.size()) {
         for (int i = startInclusive; i < endExclusive; i++) {
             grid[i].clear();
@@ -95,17 +95,12 @@ void grid_purge(int startInclusive, int endExclusive) {
     }
 }
 
-std::vector<particle_t *> grid_get_collisions(particle_t *particle) {
-    int coordinate = get_particle_coordinate(particle);
+std::vector<particle_t *> gridGetAt(int coordinate) {
     return grid[coordinate];
 }
 
-std::vector<particle_t *> grid_get_at(int coordinate) {
-    return grid[coordinate];
-}
-
-std::vector<particle_t *> grid_get_collisions_at_neighbor(particle_t *particle, int offsetX, int offsetY) {
-    int coordinate = get_particle_coordinate(particle);
+std::vector<particle_t *> gridGetCollisionsAtNeighbor(particle_t *particle, int offsetX, int offsetY) {
+    int coordinate = gridGetParticleCoordinate(particle);
     int x = (coordinate % gridColumns) + offsetX;
     int y = (coordinate / gridColumns) + offsetY;
 

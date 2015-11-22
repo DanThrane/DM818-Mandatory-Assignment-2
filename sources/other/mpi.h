@@ -18,7 +18,7 @@ void validateRootInitialization(int currentProcessor, int counter, particle_t *p
 
 void combineResult(FILE *fsave);
 
-void wait_for_debugger();
+void waitForDebugger();
 
 typedef struct {
     int particleCount;

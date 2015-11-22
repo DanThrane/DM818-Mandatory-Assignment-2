@@ -61,12 +61,13 @@ int maxPosition;
  */
 particle_t *ownedParticles;
 
+// Zones
 GhostZone ownedUpper;
 GhostZone ownedLower;
-
 GhostZone borrowedUpper;
 GhostZone borrowedLower;
 
+// Insertions from an owned zone into a borrowed one
 std::vector<particle_t> insertionsIntoUpperBorrowed;
 std::vector<particle_t> insertionsIntoLowerBorrowed;
 
@@ -86,7 +87,7 @@ void prepareGhostZoneForExchange(GhostZone &zone) {
     // Move the particles from the real grid into the buffer
     zone.particleCount = 0;
     for (int i = zone.coordinateStart; i < zone.coordinateStart + gridColumns; i++) {
-        for (auto particle : grid_get_at(i)) {
+        for (auto particle : gridGetAt(i)) {
             memcpy(&zone.particles[zone.particleCount], particle, sizeof(particle_t));
             zone.particleCount++;
 #ifdef DEBUG
@@ -135,8 +136,9 @@ particle_t *exchangeInsertions(std::vector<particle_t> &insertions, int multipli
 
     MPI_Sendrecv(&sendingCount, 1, MPI_INT, rank + (1 * multiplier), 0, &count, 1, MPI_INT, rank + (1 * multiplier), 0,
                  MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+
     receiveBuffer = (particle_t *) malloc(sizeof(particle_t) * count);
-//    printf("[%d] Receiving %d inserted particles!\n", rank, count);
+
     MPI_Sendrecv(prepared, sendingCount, particleType, rank + (1 * multiplier), 0, receiveBuffer, count, particleType,
                  rank + (1 * multiplier), 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
     *outputCount = count;
@@ -146,19 +148,19 @@ particle_t *exchangeInsertions(std::vector<particle_t> &insertions, int multipli
 
 void updateGrid(GhostZone &zone, std::vector<particle_t> &localInsertions) {
     VALIDATE_GHOST_ZONE(zone);
-    WHEN_DEBUGGING(validate_grid(0, __FILE__, __LINE__));
+    WHEN_DEBUGGING(gridValidate(0, __FILE__, __LINE__));
 
     for (int i = 0; i < zone.particleCount; i++) {
-        grid_add(&zone.particles[i]);
+        gridAdd(&zone.particles[i]);
     }
 
     for (auto particle : localInsertions) {
         mempcpy(&zone.particles[zone.particleCount], &particle, sizeof(particle_t));
-        grid_add(&zone.particles[zone.particleCount]);
+        gridAdd(&zone.particles[zone.particleCount]);
         zone.particleCount++;
     }
 
-    WHEN_DEBUGGING(validate_grid(0, __FILE__, __LINE__));
+    WHEN_DEBUGGING(gridValidate(0, __FILE__, __LINE__));
     VALIDATE_GHOST_ZONE(zone);
 }
 
@@ -168,35 +170,34 @@ void mergeInsertedInLocallyOwned(int insertedCount, particle_t *inserted) {
     // The incoming buffer is a temporary one. Move the particles to the owned buffer
     memcpy(&ownedParticles[maxPosition], inserted, sizeof(particle_t) * insertedCount);
     maxPosition += insertedCount;
-    if (rank == 0) printf(" += %d\n", insertedCount);
 
     for (int i = start; i < start + insertedCount; i++) {
-        grid_add(&ownedParticles[i]);
+        gridAdd(&ownedParticles[i]);
     }
 }
 
 void exchangeInformationAbove(particle_t **insertedLower, int *insertedLowerCount) {
     if (rank < maxRank - 1) {
-        WHEN_DEBUGGING(validate_grid(0, __FILE__, __LINE__));
+        WHEN_DEBUGGING(gridValidate(0, __FILE__, __LINE__));
         exchangeParticles(ownedUpper, borrowedUpper, 1);
-        WHEN_DEBUGGING(validate_grid(0, __FILE__, __LINE__));
+        WHEN_DEBUGGING(gridValidate(0, __FILE__, __LINE__));
         *insertedLower = exchangeInsertions(insertionsIntoUpperBorrowed, 1, insertedLowerCount);
-        WHEN_DEBUGGING(validate_grid(0, __FILE__, __LINE__));
+        WHEN_DEBUGGING(gridValidate(0, __FILE__, __LINE__));
     }
 }
 
 void exchangeInformationBelow(particle_t **insertedUpper, int *insertedUpperCount) {
     if (rank > 0) {
-        WHEN_DEBUGGING(validate_grid(0, __FILE__, __LINE__));
+        WHEN_DEBUGGING(gridValidate(0, __FILE__, __LINE__));
         exchangeParticles(ownedLower, borrowedLower, -1);
-        WHEN_DEBUGGING(validate_grid(0, __FILE__, __LINE__));
+        WHEN_DEBUGGING(gridValidate(0, __FILE__, __LINE__));
         *insertedUpper = exchangeInsertions(insertionsIntoLowerBorrowed, -1, insertedUpperCount);
-        WHEN_DEBUGGING(validate_grid(0, __FILE__, __LINE__));
+        WHEN_DEBUGGING(gridValidate(0, __FILE__, __LINE__));
     }
 }
 
 void exchangeInformationWithNeighborHood() {
-    WHEN_DEBUGGING(validate_grid(0, __FILE__, __LINE__));
+    WHEN_DEBUGGING(gridValidate(0, __FILE__, __LINE__));
 #ifdef DEBUG
     // Validate our local insertions, which are to be exchanged with neighbor
     int lowerStart = borrowedLower.coordinateStart;
@@ -223,10 +224,10 @@ void exchangeInformationWithNeighborHood() {
     prepareGhostZoneForExchange(ownedLower);
 
     // Purge the borrowed ghost zones, as we will receive new particles soon.
-    WHEN_DEBUGGING(validate_grid(0, __FILE__, __LINE__));
-    grid_purge(borrowedLower.coordinateStart, borrowedLower.coordinateStart + gridColumns);
-    grid_purge(borrowedUpper.coordinateStart, borrowedUpper.coordinateStart + gridColumns);
-    WHEN_DEBUGGING(validate_grid(0, __FILE__, __LINE__));
+    WHEN_DEBUGGING(gridValidate(0, __FILE__, __LINE__));
+    gridPurge(borrowedLower.coordinateStart, borrowedLower.coordinateStart + gridColumns);
+    gridPurge(borrowedUpper.coordinateStart, borrowedUpper.coordinateStart + gridColumns);
+    WHEN_DEBUGGING(gridValidate(0, __FILE__, __LINE__));
 
     if (rank % 2 == 0) {
         // Even ranks communicate with processors above us first
@@ -239,22 +240,22 @@ void exchangeInformationWithNeighborHood() {
     }
 
     // First insert the complete state changes from our neighbor merged with out own local insertions in these zones
-    WHEN_DEBUGGING(validate_grid(0, __FILE__, __LINE__));
+    WHEN_DEBUGGING(gridValidate(0, __FILE__, __LINE__));
     updateGrid(borrowedUpper, insertionsIntoUpperBorrowed);
     updateGrid(borrowedLower, insertionsIntoLowerBorrowed);
-    WHEN_DEBUGGING(validate_grid(0, __FILE__, __LINE__));
+    WHEN_DEBUGGING(gridValidate(0, __FILE__, __LINE__));
 
     // Then we get the insertions that occurred into our owned zones from our neighbors
-    WHEN_DEBUGGING(validate_grid(0, __FILE__, __LINE__));
+    WHEN_DEBUGGING(gridValidate(0, __FILE__, __LINE__));
     mergeInsertedInLocallyOwned(insertedIntoLowerOwnedCount, insertedIntoLowerOwned);
     mergeInsertedInLocallyOwned(insertedIntoUpperOwnedCount, insertedIntoUpperOwned);
-    WHEN_DEBUGGING(validate_grid(0, __FILE__, __LINE__));
+    WHEN_DEBUGGING(gridValidate(0, __FILE__, __LINE__));
 
     // Clear insertions from last iteration
     insertionsIntoLowerBorrowed.clear();
     insertionsIntoUpperBorrowed.clear();
 
-    WHEN_DEBUGGING(validate_grid(0, __FILE__, __LINE__));
+    WHEN_DEBUGGING(gridValidate(0, __FILE__, __LINE__));
 
     // Release inserted
     if (insertedIntoLowerOwned == NULL) free(insertedIntoLowerOwned);
@@ -262,7 +263,6 @@ void exchangeInformationWithNeighborHood() {
 }
 
 int main(int argc, char **argv) {
-    //  process command line parameters
     globalParticleCount = read_int(argc, argv, "-n", 1000);
     char *savename = read_string(argc, argv, "-o", NULL);
     FILE *fsave = savename && rank == 0 ? fopen(savename, "w") : NULL;
@@ -270,20 +270,17 @@ int main(int argc, char **argv) {
 
     initMPI(argc, argv);
     initSystem();
-    WHEN_DEBUGGING(validate_grid(0, __FILE__, __LINE__));
+    WHEN_DEBUGGING(gridValidate(0, __FILE__, __LINE__));
 
-//    if (rank == 0) wait_for_debugger();
-
-    //  simulate a number of time steps
     double simulation_time = read_timer();
     for (int step = 0; step < NSTEPS; step++) {
         if (rank == 0) printf("Step = %d. MaxPosition = %d\n", step, maxPosition);
         MPI_Barrier(MPI_COMM_WORLD);
-        WHEN_DEBUGGING(validate_grid(0, __FILE__, __LINE__));
         exchangeInformationWithNeighborHood();
-        WHEN_DEBUGGING(validate_grid(0, __FILE__, __LINE__));
-        WHEN_DEBUGGING(validateNumberOfParticles());
 
+#ifdef DEBUG
+        validate_grid(0, __FILE__, __LINE__);
+        validateNumberOfParticles();
         for (int i = 0; i < gridColumns * gridColumns; i++) {
             if (i < borrowedLower.coordinateStart || i > borrowedUpper.coordinateStart + gridColumns) {
                 if (!grid_get_at(i).empty()) {
@@ -291,6 +288,7 @@ int main(int argc, char **argv) {
                 }
             }
         }
+#endif
 
         //  compute forces
         for (int i = 0; i < maxPosition; i++) {
@@ -300,7 +298,7 @@ int main(int argc, char **argv) {
             for (int offsetX = -1; offsetX <= 1; offsetX++) {
                 for (int offsetY = -1; offsetY <= 1; offsetY++) {
                     const std::vector<particle_t *> &cell =
-                            grid_get_collisions_at_neighbor(&ownedParticles[i], offsetX, offsetY);
+                            gridGetCollisionsAtNeighbor(&ownedParticles[i], offsetX, offsetY);
 
                     for (auto particle : cell) {
                         if (&ownedParticles[i] == particle) continue; //This will do very bad things otherwise!!!
@@ -315,6 +313,7 @@ int main(int argc, char **argv) {
 
         // Move and update particles
         for (int i = 0; i < maxPosition; i++) {
+            particle_t *particle = &ownedParticles[i];
 #ifdef DEBUG
             int min = borrowedLower.coordinateStart;
             int max = borrowedUpper.coordinateStart + gridColumns;
@@ -325,16 +324,12 @@ int main(int argc, char **argv) {
             validate_particles_within_sub_grid(min, max);
 
             particle_t debugParticleBefore;
-#endif
-            particle_t *particle = &ownedParticles[i];
-#ifdef DEBUG
             memcpy(&debugParticleBefore, particle, sizeof(particle_t));
-#endif
             int beforeStart = get_particle_coordinate(particle);
-            grid_remove(particle);
+#endif
+            gridRemove(particle);
             move(*particle);
-            WHEN_DEBUGGING(validate_grid(0, __FILE__, __LINE__));
-            int coordinate = get_particle_coordinate(particle);
+            int coordinate = gridGetParticleCoordinate(particle);
             if (coordinate < borrowedLower.coordinateStart + gridColumns ||
                 coordinate >= borrowedUpper.coordinateStart) { // Out of bounds
                 // Copy the particle and insert into a vector of insertions into a certain ghost zone
@@ -347,8 +342,9 @@ int main(int argc, char **argv) {
                 } else if (coordinate >= borrowedUpper.coordinateStart &&
                            coordinate < borrowedUpper.coordinateStart + gridColumns) {
                     insertionsIntoUpperBorrowed.push_back(copy);
-                } else {
+                }
 #ifdef DEBUG
+                else {
                     WHEN_DEBUGGING(validate_grid(0, __FILE__, __LINE__));
                     VALIDATE_GHOST_ZONE(borrowedLower);
                     VALIDATE_GHOST_ZONE(borrowedUpper);
@@ -362,21 +358,19 @@ int main(int argc, char **argv) {
                            particle->x, particle->y, particle->ax, particle->ay,
                            particle->vx, particle->vy);
                     assert(false);
-#endif
                 }
+#endif
 
                 // Take last element and move it in its place
                 maxPosition--;
-                printf("--\n");
                 if (i != maxPosition) {
-                    grid_remove(&ownedParticles[maxPosition]); // Make sure that the grid gets the updated pointer
+                    gridRemove(&ownedParticles[maxPosition]); // Make sure that the grid gets the updated pointer
                     memcpy(&ownedParticles[i], &ownedParticles[maxPosition], sizeof(particle_t));
-                    grid_add(&ownedParticles[i]);
+                    gridAdd(&ownedParticles[i]);
                 }
             } else {
-                grid_add(particle);
+                gridAdd(particle);
             }
-            WHEN_DEBUGGING(validate_grid(0, __FILE__, __LINE__));
         }
 
         //  save if necessary
@@ -400,7 +394,6 @@ int main(int argc, char **argv) {
 
     if (rank == 0) { printf("n = %d, simulation time = %g seconds\n", globalParticleCount, simulation_time); }
 
-    // TODO Release resources
     if (fsave) {
         fclose(fsave);
     }
@@ -464,11 +457,9 @@ void initSystem() {
     ownedParticles = (particle_t *) malloc(globalParticleCount * sizeof(particle_t));
 
     // Initialize grid and world (for all processors)
-    grid_init(sqrt(0.0005 * globalParticleCount) / 0.01);
+    gridInit(sqrt(0.0005 * globalParticleCount) / 0.01);
     set_size(globalParticleCount);
     cellsPerProcess = gridColumns * (int) ceil(gridColumns / (double) maxRank);
-
-    printf("CellsPerProcess: %d\n", cellsPerProcess);
 
     // Initialize and prepare particles at the master node
     if (rank == 0) {
@@ -496,7 +487,7 @@ void initSystem() {
 
     // Initialize grid with received particles
     for (int i = 0; i < maxPosition; ++i) {
-        grid_add(&ownedParticles[i]);
+        gridAdd(&ownedParticles[i]);
     }
 
 #ifdef DEBUG
@@ -508,6 +499,7 @@ void initSystem() {
     assert(ownedUpper.coordinateStart % gridColumns == 0);
 
     if (rank == 0) {
+        printf("CellsPerProcess: %d\n", cellsPerProcess);
         printf("---- World zones ----\n");
         printf("Borrowed lower: %d\n", borrowedLower.coordinateStart);
         printf("Owned lower: %d\n", ownedLower.coordinateStart);
@@ -542,10 +534,10 @@ void initializeAtRoot(particle_t *particles, particle_t *particlesToSend, int *s
     init_particles(globalParticleCount, particles);
 
     for (int i = 0; i < globalParticleCount; ++i) {
-        grid_add(&particles[i]);
+        gridAdd(&particles[i]);
     }
     for (int i = 0; i < gridColumns * gridColumns; i++) {
-        auto cell = grid_get_at(i);
+        auto cell = gridGetAt(i);
         for (auto particle : cell) {
             memcpy(particlesToSend + counter, particle, sizeof(particle_t));
             counter++;
@@ -557,7 +549,7 @@ void initializeAtRoot(particle_t *particles, particle_t *particlesToSend, int *s
             currentProcessor++;
         }
     }
-    grid_reset();
+    gridReset();
 
 #ifdef DEBUG
     validateRootInitialization(currentProcessor, counter, particlesToSend);
@@ -570,7 +562,7 @@ void validateRootInitialization(int currentProcessor, int counter, particle_t *p
 
     counter = 0;
     for (int i = 0; i < gridColumns * gridColumns; i++) {
-        auto cell = grid_get_at(i);
+        auto cell = gridGetAt(i);
         for (auto particle : cell) {
             particle_t &copied = particlesToSend[counter];
             assert(copied.ax == particle->ax && copied.ay == particle->ay && copied.vx == particle->vx
@@ -580,7 +572,7 @@ void validateRootInitialization(int currentProcessor, int counter, particle_t *p
     }
 }
 
-void initMPI(int &argc, char **&argv) {//  set up MPI
+void initMPI(int &argc, char **&argv) {
     MPI_Init(&argc, &argv);
     MPI_Comm_size(MPI_COMM_WORLD, &maxRank);
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
@@ -632,13 +624,13 @@ int printHelp() {
     return 0;
 }
 
-void wait_for_debugger() {
+void waitForDebugger() {
     int i = 0;
     char hostname[256];
     gethostname(hostname, sizeof(hostname));
     printf("PID %d on %s ready for attach\n", getpid(), hostname);
     fflush(stdout);
-    while (0 == i) {
+    while (0 == i) { // Set i to some value != 0 using the debugger to continue
         sleep(5);
     }
 }

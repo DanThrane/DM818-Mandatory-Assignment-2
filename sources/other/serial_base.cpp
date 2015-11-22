@@ -27,7 +27,7 @@ int maxRowsMoved = 0;
 int runSerialBaseImplementationWithParticles(FILE *fsave, int n, particle_t *particles) {
     set_size(n);
     init_particles(n, particles);
-    grid_init(sqrt(0.0005 * n) / 0.01);
+    gridInit(sqrt(0.0005 * n) / 0.01);
 
     //
     //  simulate a number of time steps
@@ -47,9 +47,9 @@ int runSerialBaseImplementationWithParticles(FILE *fsave, int n, particle_t *par
         //  move particles
         //
         for (int i = 0; i < n; i++) {
-            int before = get_particle_coordinate(&particles[i]);
+            int before = gridGetParticleCoordinate(&particles[i]);
             move(particles[i]);
-            int after = get_particle_coordinate(&particles[i]);
+            int after = gridGetParticleCoordinate(&particles[i]);
             int i1 = abs(before - after) / gridColumns;
             if (i1 > maxRowsMoved) maxRowsMoved = i1;
         }
