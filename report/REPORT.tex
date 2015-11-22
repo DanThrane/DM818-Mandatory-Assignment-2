@@ -230,7 +230,14 @@ reasonable time for the $O(n^{2})$ algorithm.
 \end{figure}
 
 \section{Testing}
-% TODO look into that test file.
+Tested has been done in two ways:
+\begin{enumerate}
+\item Assertions
+\item Output
+\end{enumerate}
+
+The code is filled with assertions that constantly check if the grid is correct, ie. that no particles vanish/duplicate or moves too far in one iteration. This ensures us that the data structure is always correct. Using the program \verb!test_suite.cpp! we run the $O(n^{2})$ implementation and then the new $O(n)$ implementation and compare the output, thus confirming that the algorithm runs correctly.
+% Talk about allowed rounding errors? Maybe later i need a break.
 
 
 \input{mpi_implementation}
