@@ -1,8 +1,8 @@
 #
 # Franklin and Hopper
 #
-CC = cc
-MPCC = cc
+CC = g++ -std=c++11
+MPCC = g++ -std=c++11
 OPENMP = -mp -fopenmp
 CFLAGS = -O3
 LIBS =
@@ -39,14 +39,14 @@ TARGETS =  mpi
 
 all:	$(TARGETS)
 
-serial: serial.o common.o
+serial: serial.o common.o grid.o
 	$(CC) -o $@ $(LIBS) serial.o common.o
-pthreads: pthreads.o common.o
+pthreads: pthreads.o common.o grid.o
 	$(CC) -o $@ $(LIBS) -lpthread pthreads.o common.o
-openmp: openmp.o common.o
+openmp: openmp.o common.o grid.o
 	$(CC) -o $@ $(LIBS) $(OPENMP) openmp.o common.o
-mpi: mpi.o common.o
-	$(MPCC) -o $@ $(LIBS) $(MPILIBS) mpi.o common.o
+mpi: 	mpi.o common.o grid.o
+	$(MPCC) -o $@ $(LIBS) $(MPILIBS) mpi.o common.o grid.o
 
 openmp.o: openmp.cpp common.h
 	$(CC) -c $(OPENMP) $(CFLAGS) openmp.cpp
@@ -54,10 +54,12 @@ serial.o: serial.cpp common.h
 	$(CC) -c $(CFLAGS) serial.cpp
 pthreads.o: pthreads.cpp common.h
 	$(CC) -c $(CFLAGS) pthreads.cpp
-mpi.o: mpi.cpp common.h
+mpi.o: mpi.cpp mpi.h common.h
 	$(MPCC) -c $(CFLAGS) mpi.cpp
 common.o: common.cpp common.h
 	$(CC) -c $(CFLAGS) common.cpp
+grid.o: grid.cpp grid.h
+	$(CC) -c $(CFLAGS) grid.cpp
 
 clean:
 	rm -f *.o $(TARGETS)
