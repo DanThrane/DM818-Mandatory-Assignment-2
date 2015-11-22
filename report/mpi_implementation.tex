@@ -1,7 +1,7 @@
-\chapter{Parallelization using OpenMPI}
+\chapter{Parallelization using MPI}
 
 Throughout this chapter we will discuss how our serial implementation was parallelized. The parallelization was done
-using OpenMPI, and we will be referring to concept found in this library whenever relevant.
+using MPI, and we will be referring to concept found in this library whenever relevant.
 
 \section{Model for Communication}
 
@@ -32,9 +32,15 @@ zones as shown in figure \ref{fig:zones}. These zones are exactly correspond to 
 processor will contain up-to-date ``borrowed'' copies of these zones. The figure how each processor identifies the
 different zones. Each processor will have to communicate with its neighbors to keep these zones in sync.
 
+\section{Initializing the System}
+
+The initial system is initialized at the root. Once all the particles have been created, a local grid is created, like
+in the serial version. This gives us the initial distribution, which is then distributed to all the processors in the
+system using \verb!MPI_Scatterv!.
+
 \section{Synchronization of Nodes}
 
-As discussed in the previous section, each processor will need to keep synchronized copies of zones that they borrow
+As discussed previously, each processor will need to keep synchronized copies of zones that they borrow
 from each other. Since we in every iteration may make a change to these zones, we will need to perform this
 synchronization step in every single iteration as well. The synchronization process is two-fold, first we gather up-to-
 date information, and then we merge our information to get a correct picture of the system.
@@ -90,17 +96,26 @@ up-to-date view of the system.
 Finally we clear out our local insertions from an owned zone into a borrowed zone. Such that we're ready for the next 
 iteration.
 
-\section{Implementation Details}
-\begin{enumerate}
-  \item{What we do when we actually work (This hasn't changed)}
-\end{enumerate}
+\section{Running the Simulation and Combining the Result}
 
-\section{Load Balancing}
-\begin{enumerate}
-  \item{How do we distribute particles? Limitations and potential changes}
-  \item{The current implementation has a severe limitation on how many nodes can be used. This could be changed by 
-        balancing the load differently}
-\end{enumerate}
+The simulation step itself is left mostly unchanged from the original serial implementation. It should however be noted
+that we only have to directly look at the particles we own ourselves. That is we do not need to loop directly over the
+particles in the borrowed zones, since if any of our owned particles collide with them, then this will be picked up when
+we look at the neighboring cells.
+
+While the simulation is running, we write down where are particles are. To be able to merge the particles later, we have
+had to add an ID number to every particle, such that we may track any particle, even if it goes through several
+processors. Once the simulation is done, it is collected at the root node using \verb!MPI_Gatherv!, sorted per
+iteration, and ID, and saved to the output file.
+
+\section{Limitations}
+
+The technique used for distributing the cells to each processor, puts some limitations to the number of processors one
+can effectively use with the system. The current implementation allows for at most as many processors as there are rows.
+And when hitting this case, we won't be very effective, since we will hold twice as many borrowed cells, that we hold
+owned cells. The system could allow for more processors by letting the zones be smaller squares, that do not need to
+have the same width as the entire grid. This does however come at the cost of having up to four neighbors instead of at
+most two.
 
 \section{Performance}
 \begin{enumerate}
